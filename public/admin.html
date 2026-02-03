@@ -86,8 +86,6 @@ main .wrap{ padding-top:18px; padding-bottom:22px; }
   box-shadow: var(--shadow);
   overflow:hidden;
 }
-
-/* sehr deutlicher Hinweis bei Orange */
 .card.is-orange{
   border-color: rgba(245,158,11,.65);
   box-shadow: 0 0 0 2px rgba(245,158,11,.22), var(--shadow);
@@ -121,14 +119,12 @@ main .wrap{ padding-top:18px; padding-bottom:22px; }
   flex-direction:column;
   gap: 12px;
 }
-
 label{
   font-size: 12px;
   color: var(--muted);
   display:block;
   margin-bottom:6px;
 }
-
 .readonly{
   width:100%;
   font-size: 18px;
@@ -138,7 +134,6 @@ label{
   background: rgba(255,255,255,.04);
   color: var(--white);
 }
-
 .regBox{
   width:100%;
   padding: 10px 12px;
@@ -149,9 +144,7 @@ label{
   font-weight: 900;
   display:none;
 }
-.card.is-orange .regBox{
-  display:block;
-}
+.card.is-orange .regBox{ display:block; }
 
 input[type="time"]{
   width:100%;
@@ -163,9 +156,7 @@ input[type="time"]{
   color: var(--white);
   outline:none;
 }
-
 .row{ display:flex; gap:10px; }
-
 .btn{
   flex:1;
   padding: 10px 12px;
@@ -177,20 +168,10 @@ input[type="time"]{
   cursor: pointer;
 }
 .btn:hover{ background: rgba(255,255,255,.10); }
+.btn.redActive{ background: rgba(239,68,68,.25); border-color: rgba(239,68,68,.35); }
+.btn.greenActive{ background: rgba(34,197,94,.25); border-color: rgba(34,197,94,.35); }
 
-.btn.redActive{
-  background: rgba(239,68,68,.25);
-  border-color: rgba(239,68,68,.35);
-}
-.btn.greenActive{
-  background: rgba(34,197,94,.25);
-  border-color: rgba(34,197,94,.35);
-}
-
-.note{
-  font-size: 12px;
-  color: var(--muted);
-}
+.note{ font-size: 12px; color: var(--muted); }
 
 .block{
   max-width: 520px;
@@ -215,6 +196,54 @@ input[type="time"]{
   display:none;
   font-size: 13px;
 }
+
+/* ===== Historie Panel ===== */
+.panel{
+  margin-top: 16px;
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  background: rgba(255,255,255,.03);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.panelHead{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.panelTitle{ font-weight: 950; }
+.panelBody{ padding: 12px 14px; }
+.historyControls{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+select{
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.06);
+  color: var(--white);
+}
+.table{
+  width:100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.table th, .table td{
+  text-align:left;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  color: var(--white);
+  vertical-align: top;
+}
+.table th{ color: var(--muted); font-weight: 900; }
+.muted{ color: var(--muted); }
 </style>
 </head>
 
@@ -223,7 +252,7 @@ input[type="time"]{
   <div class="wrap top">
     <div>
       <h1>Admin Steuerung</h1>
-      <div class="sub">Orange = Fahrer angemeldet (inkl. Uhrzeit)</div>
+      <div class="sub">Orange = Fahrer angemeldet (inkl. Uhrzeit) · Historie wird gespeichert</div>
     </div>
 
     <div class="topActions">
@@ -245,6 +274,39 @@ input[type="time"]{
     </div>
 
     <div id="grid" class="grid" style="display:none"></div>
+
+    <!-- Historie -->
+    <div id="historyPanel" class="panel" style="display:none;">
+      <div class="panelHead">
+        <div class="panelTitle">Historie (Anmeldungen & Aktionen)</div>
+        <div class="historyControls">
+          <select id="histLimit">
+            <option value="100">Letzte 100</option>
+            <option value="200" selected>Letzte 200</option>
+            <option value="500">Letzte 500</option>
+            <option value="1000">Letzte 1000</option>
+          </select>
+          <button class="smallBtn" id="histRefresh">Aktualisieren</button>
+          <button class="smallBtn" id="histCSV">CSV Download</button>
+          <button class="smallBtn" id="histClear">Historie löschen</button>
+        </div>
+      </div>
+      <div class="panelBody">
+        <div class="muted">Tip: CSV Download funktioniert nur als Admin (Key in URL).</div>
+        <table class="table" id="histTable">
+          <thead>
+            <tr>
+              <th>Zeit</th>
+              <th>Typ</th>
+              <th>Container</th>
+              <th>Kennzeichen</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -263,25 +325,21 @@ function statusText(status){
   if (status === "orange") return "Angemeldet";
   return "Warten";
 }
-
 function tagClass(status){
   if (status === "green") return "tag-green";
   if (status === "orange") return "tag-orange";
   return "tag-red";
 }
-
 function cardClass(status){
   if (status === "orange") return "is-orange";
   return "";
 }
-
 function registeredTime(iso){
   if (!iso) return "--:--";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "--:--";
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
-
 function showToast(msg){
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -309,7 +367,7 @@ function renderAll(){
       </div>
 
       <div class="controls">
-        <div class="regBox" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
+        <div class="regBox">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
 
         <div>
           <label>Kennzeichen (vom Fahrer)</label>
@@ -331,7 +389,6 @@ function renderAll(){
         <button class="smallBtn" id="reset-${i}" style="width:100%;">Container zurücksetzen</button>
       </div>
     `;
-
     grid.appendChild(card);
 
     // Zeit ändern (debounce)
@@ -364,28 +421,24 @@ function renderAll(){
 function applyOne(id, data){
   current[id] = data;
 
-  // Card highlight für Orange
   const card = document.getElementById("card-"+id);
-  card.className = "card " + cardClass(data.status);
+  if (card) card.className = "card " + cardClass(data.status);
 
-  // Tag
   const tag = document.getElementById("tag-"+id);
-  tag.textContent = statusText(data.status);
-  tag.className = "statusTag " + tagClass(data.status);
+  if (tag){
+    tag.textContent = statusText(data.status);
+    tag.className = "statusTag " + tagClass(data.status);
+  }
 
-  // Plate
-  document.getElementById("plate-"+id).textContent = data.plate && data.plate.trim() ? data.plate : "---";
+  const plate = document.getElementById("plate-"+id);
+  if (plate) plate.textContent = data.plate && data.plate.trim() ? data.plate : "---";
 
-  // Reg Time
-  const reg = registeredTime(data.registeredAt);
-  const regEl = document.getElementById("reg-"+id);
-  if (regEl) regEl.textContent = reg;
+  const reg = document.getElementById("reg-"+id);
+  if (reg) reg.textContent = registeredTime(data.registeredAt);
 
-  // Zeit nur updaten, wenn nicht gerade editiert
   const t = document.getElementById("time-"+id);
   if (t && document.activeElement !== t) t.value = data.time || "";
 
-  // Buttons
   const btnR = document.getElementById("btnR-"+id);
   const btnG = document.getElementById("btnG-"+id);
   if (btnR && btnG){
@@ -394,6 +447,41 @@ function applyOne(id, data){
   }
 }
 
+// ===== Historie UI =====
+function fmtDateTime(iso){
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString([], { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit" });
+}
+
+function renderHistory(entries){
+  const body = document.getElementById("histBody");
+  body.innerHTML = "";
+
+  for (const e of entries){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${fmtDateTime(e.at)}</td>
+      <td>${e.type || ""}</td>
+      <td>${e.containerId || ""}</td>
+      <td>${e.plate || ""}</td>
+      <td class="muted">${e.details ? JSON.stringify(e.details) : ""}</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+function refreshHistory(){
+  const limit = Number(document.getElementById("histLimit").value || 200);
+  socket.emit("adminGetHistory", { limit });
+}
+
+socket.on("adminHistory", ({ entries }) => {
+  renderHistory(entries || []);
+});
+
+// ===== Auth + Init =====
 socket.on("init", (state) => {
   current = state;
   socket.emit("adminAuth", { key });
@@ -403,9 +491,11 @@ socket.on("adminAuthResult", ({ ok }) => {
   isAuthed = !!ok;
   document.getElementById("authBlock").style.display = isAuthed ? "none" : "block";
   document.getElementById("grid").style.display = isAuthed ? "grid" : "none";
+  document.getElementById("historyPanel").style.display = isAuthed ? "block" : "none";
 
   if (isAuthed){
     renderAll();
+    refreshHistory();
     showToast("Admin aktiviert");
   } else {
     showToast("Kein Admin-Zugriff");
@@ -415,15 +505,28 @@ socket.on("adminAuthResult", ({ ok }) => {
 socket.on("statusChanged", ({ id, data }) => {
   if (!isAuthed) return;
   applyOne(id, data);
-  showToast(`Container ${id}: ${statusText(data.status)}`);
 });
 
-// Reset All
+// Buttons
 document.getElementById("resetAllBtn").addEventListener("click", () => {
   if (!isAuthed) return;
-  if (confirm("Alle Container wirklich zurücksetzen?")) {
-    socket.emit("resetAll");
-  }
+  if (confirm("Alle Container wirklich zurücksetzen?")) socket.emit("resetAll");
+});
+
+document.getElementById("histRefresh").addEventListener("click", () => {
+  if (!isAuthed) return;
+  refreshHistory();
+});
+
+document.getElementById("histCSV").addEventListener("click", () => {
+  if (!isAuthed) return;
+  // CSV vom Server (nur mit key)
+  window.location.href = "/admin-history.csv?key=" + encodeURIComponent(key);
+});
+
+document.getElementById("histClear").addEventListener("click", () => {
+  if (!isAuthed) return;
+  if (confirm("Historie wirklich löschen?")) socket.emit("adminClearHistory");
 });
 </script>
 </body>

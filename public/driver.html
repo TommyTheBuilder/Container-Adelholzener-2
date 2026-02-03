@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fahrer Anmeldung</title>
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+:root{
+  --bg:#0b1220;
+  --card:#111a2e;
+  --muted:#a7b3d1;
+  --white:#f6f8ff;
+  --stroke:rgba(255,255,255,.08);
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --radius: 18px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  color:var(--white);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 18px;
+  background: radial-gradient(1200px 600px at 20% 0%, rgba(59,130,246,.12), transparent 55%),
+              radial-gradient(900px 600px at 80% 20%, rgba(245,158,11,.10), transparent 55%),
+              var(--bg);
+}
+
+.card{
+  width: min(520px, 100%);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+h1{ margin:0; font-size: 20px; letter-spacing:.4px; }
+.sub{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
+
+.form{
+  margin-top: 14px;
+  display:flex;
+  flex-direction:column;
+  gap: 12px;
+}
+
+label{
+  font-size: 12px;
+  color: var(--muted);
+  display:block;
+  margin-bottom:6px;
+}
+
+select, input{
+  width:100%;
+  font-size: 18px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.06);
+  color: var(--white);
+  outline:none;
+}
+
+.btn{
+  width:100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.10);
+  color: var(--white);
+  font-weight: 900;
+  cursor:pointer;
+  font-size: 16px;
+}
+.btn:hover{ background: rgba(255,255,255,.14); }
+
+.msg{
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--white);
+  display:none;
+  font-size: 14px;
+}
+
+.small{
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+</style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>Fahrer Anmeldung</h1>
+    <div class="sub">Bitte Container wählen und Kennzeichen eintragen.</div>
+
+    <div class="form">
+      <div>
+        <label>Container</label>
+        <select id="container">
+          <option value="1">Container 1</option>
+          <option value="2">Container 2</option>
+          <option value="3">Container 3</option>
+          <option value="4">Container 4</option>
+          <option value="5">Container 5</option>
+          <option value="6">Container 6</option>
+          <option value="7">Container 7</option>
+          <option value="8">Container 8</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Kennzeichen</label>
+        <input id="plate" placeholder="z.B. B-AB 1234" autocomplete="off" />
+      </div>
+
+      <button class="btn" id="sendBtn">Anmelden</button>
+
+      <div id="msg" class="msg"></div>
+
+      <div class="small">
+        Hinweis: Wenn ein Container bereits belegt ist, bitte einen anderen wählen oder beim Personal melden.
+      </div>
+    </div>
+  </div>
+
+<script>
+const socket = io();
+let state = null;
+
+const containerEl = document.getElementById("container");
+const plateEl = document.getElementById("plate");
+const msgEl = document.getElementById("msg");
+const btn = document.getElementById("sendBtn");
+
+function showMsg(text){
+  msgEl.textContent = text;
+  msgEl.style.display = "block";
+}
+
+socket.on("init", (s) => { state = s; });
+
+btn.addEventListener("click", () => {
+  const id = Number(containerEl.value);
+  const plate = plateEl.value.trim();
+
+  if (!plate){
+    showMsg("Bitte Kennzeichen eingeben.");
+    return;
+  }
+
+  btn.disabled = true;
+  socket.emit("driverRegister", { id, plate });
+});
+
+socket.on("driverRegisterResult", ({ ok, message }) => {
+  btn.disabled = false;
+  showMsg(message);
+
+  if (ok){
+    // Optional: Eingaben sperren
+    containerEl.disabled = true;
+    plateEl.disabled = true;
+    btn.disabled = true;
+  }
+});
+</script>
+</body>
+</html>

@@ -9,85 +9,209 @@
 <style>
 :root{
   --bg:#0b1220;
-  --card:#111a2e;
   --muted:#a7b3d1;
   --white:#f6f8ff;
-  --stroke:rgba(255,255,255,.08);
+  --stroke:rgba(255,255,255,.10);
   --shadow: 0 10px 30px rgba(0,0,0,.35);
   --radius: 18px;
+
+  --red:#ef4444;       /* warten */
+  --orange:#f59e0b;    /* angemeldet */
+  --green:#22c55e;     /* an die rampe */
+  --card: rgba(255,255,255,.05);
+  --card2: rgba(255,255,255,.02);
 }
+
 *{box-sizing:border-box}
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
   color:var(--white);
-  min-height:100vh;
+  background:
+    radial-gradient(1200px 600px at 20% 0%, rgba(59,130,246,.12), transparent 55%),
+    radial-gradient(900px 600px at 80% 20%, rgba(245,158,11,.10), transparent 55%),
+    var(--bg);
+}
+
+header{
+  position: sticky;
+  top: 0;
+  backdrop-filter: blur(10px);
+  background: rgba(11,18,32,.70);
+  border-bottom: 1px solid var(--stroke);
+  z-index: 10;
+}
+
+.wrap{
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 14px 16px;
+}
+
+.top{
   display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 18px;
-  background: radial-gradient(1200px 600px at 20% 0%, rgba(59,130,246,.12), transparent 55%),
-              radial-gradient(900px 600px at 80% 20%, rgba(245,158,11,.10), transparent 55%),
-              var(--bg);
+  align-items:flex-end;
+  justify-content:space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.card{
-  width: min(520px, 100%);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-  border: 1px solid var(--stroke);
-  box-shadow: var(--shadow);
-  padding: 16px;
-}
-
-h1{ margin:0; font-size: 20px; letter-spacing:.4px; }
+h1{ margin:0; font-size: 20px; letter-spacing:.3px; }
 .sub{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
 
-.form{
-  margin-top: 14px;
+.legend{
   display:flex;
-  flex-direction:column;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+.badge{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+}
+.dot{ width:10px; height:10px; border-radius: 999px; }
+.dot.red{ background: var(--red); }
+.dot.orange{ background: var(--orange); }
+.dot.green{ background: var(--green); }
+
+main .wrap{ padding-top: 16px; padding-bottom: 22px; }
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
+}
+@media (min-width: 860px){
+  .grid{ grid-template-columns: repeat(4, 1fr); }
+}
+
+.slot{
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, var(--card), var(--card2));
+  box-shadow: var(--shadow);
+  overflow:hidden;
+  cursor: pointer;
+  user-select: none;
+  transition: transform .08s ease;
+}
+.slot:active{ transform: scale(.99); }
+
+.slot.disabled{
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.slot.selected{
+  outline: 3px solid rgba(255,255,255,.35);
+  outline-offset: 2px;
+}
+
+.slotTop{
+  padding: 10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.slotName{ font-weight: 900; letter-spacing:.2px; }
+.timePill{
+  font-size: 12px;
+  color: var(--muted);
+  padding: 5px 8px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  border-radius: 999px;
+}
+
+.slotBody{
+  padding: 12px;
+  display:flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 92px;
+  justify-content: center;
+}
+
+.statusRow{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+}
+.statusText{
+  font-weight: 800;
+  color: var(--white);
+}
+
+.bar{
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.10);
+  overflow:hidden;
+  border: 1px solid rgba(255,255,255,.08);
+}
+.fill{ height: 100%; width: 100%; }
+.fill.red{ background: var(--red); }
+.fill.orange{ background: var(--orange); }
+.fill.green{ background: var(--green); }
+
+.formCard{
+  margin-top: 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  box-shadow: var(--shadow);
+  padding: 14px;
 }
 
 label{
-  font-size: 12px;
-  color: var(--muted);
   display:block;
-  margin-bottom:6px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
 }
 
-select, input{
-  width:100%;
+input{
+  width: 100%;
   font-size: 18px;
   padding: 12px 12px;
   border-radius: 12px;
-  border: 1px solid var(--stroke);
+  border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.06);
   color: var(--white);
-  outline:none;
+  outline: none;
 }
 
 .btn{
+  margin-top: 10px;
   width:100%;
   padding: 12px 12px;
   border-radius: 12px;
-  border: 1px solid var(--stroke);
+  border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.10);
   color: var(--white);
   font-weight: 900;
-  cursor:pointer;
+  cursor: pointer;
   font-size: 16px;
 }
 .btn:hover{ background: rgba(255,255,255,.14); }
+.btn:disabled{ opacity:.6; cursor:not-allowed; }
 
 .msg{
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid var(--stroke);
+  border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.04);
-  color: var(--white);
   display:none;
   font-size: 14px;
 }
@@ -98,82 +222,207 @@ select, input{
   font-size: 12px;
   line-height: 1.4;
 }
+.selectedInfo{
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.selectedInfo b{ color: var(--white); }
 </style>
 </head>
 
 <body>
-  <div class="card">
-    <h1>Fahrer Anmeldung</h1>
-    <div class="sub">Bitte Container wählen und Kennzeichen eintragen.</div>
+<header>
+  <div class="wrap top">
+    <div>
+      <h1>Fahrer Anmeldung</h1>
+      <div class="sub">Wähle deinen Container und trage dein Kennzeichen ein.</div>
+    </div>
+    <div class="legend">
+      <div class="badge"><span class="dot red"></span>Warten (frei)</div>
+      <div class="badge"><span class="dot orange"></span>Angemeldet</div>
+      <div class="badge"><span class="dot green"></span>An die Rampe</div>
+    </div>
+  </div>
+</header>
 
-    <div class="form">
-      <div>
-        <label>Container</label>
-        <select id="container">
-          <option value="1">Container 1</option>
-          <option value="2">Container 2</option>
-          <option value="3">Container 3</option>
-          <option value="4">Container 4</option>
-          <option value="5">Container 5</option>
-          <option value="6">Container 6</option>
-          <option value="7">Container 7</option>
-          <option value="8">Container 8</option>
-        </select>
-      </div>
+<main>
+  <div class="wrap">
+    <div id="grid" class="grid"></div>
 
-      <div>
+    <div class="formCard">
+      <div class="selectedInfo" id="selInfo">Bitte zuerst einen Container auswählen.</div>
+
+      <div style="margin-top:10px;">
         <label>Kennzeichen</label>
         <input id="plate" placeholder="z.B. B-AB 1234" autocomplete="off" />
       </div>
 
-      <button class="btn" id="sendBtn">Anmelden</button>
+      <button class="btn" id="sendBtn" disabled>Anmelden</button>
 
       <div id="msg" class="msg"></div>
 
       <div class="small">
-        Hinweis: Wenn ein Container bereits belegt ist, bitte einen anderen wählen oder beim Personal melden.
+        Hinweis: Bereits belegte Container können nicht ausgewählt werden. Wenn alles belegt ist, bitte beim Personal melden.
       </div>
     </div>
   </div>
+</main>
 
 <script>
 const socket = io();
-let state = null;
 
-const containerEl = document.getElementById("container");
+let state = null;
+let selectedId = null;
+
+const gridEl = document.getElementById("grid");
 const plateEl = document.getElementById("plate");
 const msgEl = document.getElementById("msg");
-const btn = document.getElementById("sendBtn");
+const btnEl = document.getElementById("sendBtn");
+const selInfoEl = document.getElementById("selInfo");
+
+function statusText(status){
+  if (status === "green") return "An die Rampe";
+  if (status === "orange") return "Angemeldet";
+  return "Warten";
+}
+
+// "frei" = rot UND kein Kennzeichen
+function isFree(c){
+  return c.status === "red" && (!c.plate || !c.plate.trim());
+}
+
+function timeText(c){
+  return (c.time && c.time.trim()) ? c.time.trim() : "--:--";
+}
 
 function showMsg(text){
   msgEl.textContent = text;
   msgEl.style.display = "block";
 }
 
-socket.on("init", (s) => { state = s; });
+function clearMsg(){
+  msgEl.style.display = "none";
+  msgEl.textContent = "";
+}
 
-btn.addEventListener("click", () => {
-  const id = Number(containerEl.value);
+function updateSelectedInfo(){
+  if (!state || !selectedId){
+    selInfoEl.innerHTML = "Bitte zuerst einen <b>Container</b> auswählen.";
+    btnEl.disabled = true;
+    return;
+  }
+
+  const c = state[selectedId];
+  const t = timeText(c);
+  selInfoEl.innerHTML = `Ausgewählt: <b>Container ${selectedId}</b> · Termin: <b>${t}</b>`;
+
+  // Button nur aktiv, wenn frei
+  btnEl.disabled = !isFree(c);
+}
+
+function renderAll(){
+  gridEl.innerHTML = "";
+  for (let i = 1; i <= 8; i++){
+    const c = state[i];
+    const free = isFree(c);
+    const time = timeText(c);
+
+    const slot = document.createElement("div");
+    slot.className = "slot" + (free ? "" : " disabled") + (selectedId === i ? " selected" : "");
+    slot.id = "slot-" + i;
+
+    slot.innerHTML = `
+      <div class="slotTop">
+        <div class="slotName">Container ${i}</div>
+        <div class="timePill">⏱ ${time}</div>
+      </div>
+      <div class="slotBody">
+        <div class="statusRow">
+          <div>Status</div>
+          <div class="statusText">${statusText(c.status)}</div>
+        </div>
+        <div class="bar"><div class="fill ${c.status}"></div></div>
+      </div>
+    `;
+
+    slot.addEventListener("click", () => {
+      clearMsg();
+
+      // Auswahl erlauben: frei ODER bereits ausgewählt (damit man wieder abwählen kann)
+      if (!free && selectedId !== i){
+        showMsg("Dieser Container ist bereits belegt. Bitte einen freien Container wählen.");
+        return;
+      }
+
+      // Toggle-Auswahl
+      selectedId = (selectedId === i) ? null : i;
+      renderAll();
+      updateSelectedInfo();
+    });
+
+    gridEl.appendChild(slot);
+  }
+}
+
+function applyOne(id, data){
+  state[id] = data;
+
+  // Wenn der ausgewählte Container gerade belegt wurde -> Auswahl entfernen
+  if (selectedId === id && !isFree(data)){
+    selectedId = null;
+    showMsg("Dein ausgewählter Container ist nicht mehr frei. Bitte neu auswählen.");
+  }
+
+  renderAll();
+  updateSelectedInfo();
+}
+
+socket.on("init", (s) => {
+  state = s;
+  renderAll();
+  updateSelectedInfo();
+});
+
+socket.on("statusChanged", ({ id, data }) => {
+  if (!state) return;
+  applyOne(Number(id), data);
+});
+
+btnEl.addEventListener("click", () => {
+  clearMsg();
+
+  if (!state || !selectedId){
+    showMsg("Bitte zuerst einen Container auswählen.");
+    return;
+  }
+
+  const c = state[selectedId];
+  if (!isFree(c)){
+    showMsg("Dieser Container ist nicht mehr frei. Bitte einen anderen wählen.");
+    return;
+  }
+
   const plate = plateEl.value.trim();
-
   if (!plate){
     showMsg("Bitte Kennzeichen eingeben.");
     return;
   }
 
-  btn.disabled = true;
-  socket.emit("driverRegister", { id, plate });
+  btnEl.disabled = true;
+  socket.emit("driverRegister", { id: selectedId, plate });
 });
 
 socket.on("driverRegisterResult", ({ ok, message }) => {
-  btn.disabled = false;
+  btnEl.disabled = false;
   showMsg(message);
 
   if (ok){
-    // Optional: Eingaben sperren
-    containerEl.disabled = true;
+    // Optional: UI sperren nach Erfolg
+    gridEl.style.pointerEvents = "none";
     plateEl.disabled = true;
-    btn.disabled = true;
+    btnEl.disabled = true;
+    selInfoEl.innerHTML = "✅ Anmeldung erfolgreich. Bitte warten.";
   }
 });
 </script>

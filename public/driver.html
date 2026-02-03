@@ -15,13 +15,12 @@
   --shadow: 0 10px 30px rgba(0,0,0,.35);
   --radius: 18px;
 
-  --red:#ef4444;       /* warten */
-  --orange:#f59e0b;    /* angemeldet */
-  --green:#22c55e;     /* an die rampe */
+  --red:#ef4444;
+  --orange:#f59e0b;
+  --green:#22c55e;
   --card: rgba(255,255,255,.05);
   --card2: rgba(255,255,255,.02);
 }
-
 *{box-sizing:border-box}
 body{
   margin:0;
@@ -32,7 +31,6 @@ body{
     radial-gradient(900px 600px at 80% 20%, rgba(245,158,11,.10), transparent 55%),
     var(--bg);
 }
-
 header{
   position: sticky;
   top: 0;
@@ -41,13 +39,11 @@ header{
   border-bottom: 1px solid var(--stroke);
   z-index: 10;
 }
-
 .wrap{
   max-width: 980px;
   margin: 0 auto;
   padding: 14px 16px;
 }
-
 .top{
   display:flex;
   align-items:flex-end;
@@ -55,7 +51,6 @@ header{
   gap: 12px;
   flex-wrap: wrap;
 }
-
 h1{ margin:0; font-size: 20px; letter-spacing:.3px; }
 .sub{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
 
@@ -102,16 +97,8 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   transition: transform .08s ease, opacity .08s ease;
 }
 .slot:active{ transform: scale(.99); }
-
-.slot.disabled{
-  opacity: .55;
-  cursor: not-allowed;
-}
-
-.slot.selected{
-  outline: 3px solid rgba(255,255,255,.35);
-  outline-offset: 2px;
-}
+.slot.disabled{ opacity: .55; cursor: not-allowed; }
+.slot.selected{ outline: 3px solid rgba(255,255,255,.35); outline-offset: 2px; }
 
 .slotTop{
   padding: 10px 12px;
@@ -147,7 +134,7 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   display:flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 140px;
+  min-height: 170px;
   justify-content: center;
 }
 
@@ -158,10 +145,16 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   color: var(--muted);
   font-size: 12px;
 }
-.statusText{
-  font-weight: 900;
-  color: var(--white);
+.statusText{ font-weight: 900; color: var(--white); }
+
+.regRow{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
 }
+.regValue{ font-weight: 900; color: var(--white); }
 
 .bar{
   width: 100%;
@@ -184,14 +177,7 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   box-shadow: var(--shadow);
   padding: 14px;
 }
-
-label{
-  display:block;
-  color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 6px;
-}
-
+label{ display:block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
 input{
   width: 100%;
   font-size: 18px;
@@ -202,7 +188,6 @@ input{
   color: var(--white);
   outline: none;
 }
-
 .btn{
   margin-top: 10px;
   width:100%;
@@ -227,7 +212,6 @@ input{
   display:none;
   font-size: 14px;
 }
-
 .small{
   margin-top: 10px;
   color: var(--muted);
@@ -283,7 +267,6 @@ input{
 
 <script>
 const socket = io();
-
 let state = null;
 let selectedId = null;
 
@@ -298,31 +281,31 @@ function statusText(status){
   if (status === "orange") return "Angemeldet";
   return "Warten";
 }
+function hasTime(c){ return !!(c.time && c.time.trim()); }
+function timeText(c){ return hasTime(c) ? c.time.trim() : "--:--"; }
 
 // frei = rot + kein Kennzeichen
 function isFree(c){
   return c.status === "red" && (!c.plate || !c.plate.trim());
 }
 
-// Termin gesetzt?
-function hasTime(c){
-  return !!(c.time && c.time.trim());
-}
-
-// Fahrer darf auswählen, wenn Termin gesetzt UND frei
+// wählbar: Termin gesetzt + frei
 function isSelectableForDriver(c){
   return hasTime(c) && isFree(c);
 }
 
-function timeText(c){
-  return hasTime(c) ? c.time.trim() : "--:--";
+// Anzeige HH:MM der Anmeldung
+function registeredTime(iso){
+  if (!iso) return "--:--";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "--:--";
+  return d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
 }
 
 function showMsg(text){
   msgEl.textContent = text;
   msgEl.style.display = "block";
 }
-
 function clearMsg(){
   msgEl.style.display = "none";
   msgEl.textContent = "";
@@ -334,10 +317,8 @@ function updateSelectedInfo(){
     btnEl.disabled = true;
     return;
   }
-
   const c = state[selectedId];
-  const t = timeText(c);
-  selInfoEl.innerHTML = `Ausgewählt: <b>Container ${selectedId}</b> · Termin: <b>${t}</b>`;
+  selInfoEl.innerHTML = `Ausgewählt: <b>Container ${selectedId}</b> · Termin: <b>${timeText(c)}</b>`;
   btnEl.disabled = !isSelectableForDriver(c);
 }
 
@@ -347,19 +328,18 @@ function renderAll(){
   for (let i = 1; i <= 8; i++){
     const c = state[i];
     const selectable = isSelectableForDriver(c);
-    const time = timeText(c);
-
-    // Deaktivieren, wenn nicht auswählbar (Termin fehlt ODER nicht frei)
     const disabled = !selectable;
-    const slot = document.createElement("div");
-    slot.className = "slot" + (disabled ? " disabled" : "") + (selectedId === i ? " selected" : "");
-    slot.id = "slot-" + i;
+    const time = timeText(c);
+    const reg = registeredTime(c.registeredAt);
 
-    // Status im Kopf: warum disabled?
     let headNote = "";
     if (!hasTime(c)) headNote = "kein Termin";
     else if (!isFree(c)) headNote = "belegt";
     else headNote = "frei";
+
+    const slot = document.createElement("div");
+    slot.className = "slot" + (disabled ? " disabled" : "") + (selectedId === i ? " selected" : "");
+    slot.id = "slot-" + i;
 
     slot.innerHTML = `
       <div class="slotTop">
@@ -374,6 +354,12 @@ function renderAll(){
           <div>Status</div>
           <div class="statusText">${statusText(c.status)}</div>
         </div>
+
+        <div class="regRow">
+          <div>Angemeldet</div>
+          <div class="regValue">${reg}</div>
+        </div>
+
         <div class="bar"><div class="fill ${c.status}"></div></div>
       </div>
     `;
@@ -382,15 +368,11 @@ function renderAll(){
       clearMsg();
 
       if (disabled){
-        if (!hasTime(c)){
-          showMsg("Dieser Container hat noch keinen Termin. Bitte einen Container mit Uhrzeit wählen.");
-        } else {
-          showMsg("Dieser Container ist bereits belegt. Bitte einen anderen wählen.");
-        }
+        if (!hasTime(c)) showMsg("Dieser Container hat noch keinen Termin. Bitte einen Container mit Uhrzeit wählen.");
+        else showMsg("Dieser Container ist bereits belegt. Bitte einen anderen wählen.");
         return;
       }
 
-      // Toggle-Auswahl
       selectedId = (selectedId === i) ? null : i;
       renderAll();
       updateSelectedInfo();
@@ -403,7 +385,6 @@ function renderAll(){
 function applyOne(id, data){
   state[id] = data;
 
-  // Wenn ausgewählt, aber nicht mehr auswählbar -> Auswahl entfernen
   if (selectedId === id && !isSelectableForDriver(data)){
     selectedId = null;
     showMsg("Dein ausgewählter Container ist nicht mehr verfügbar. Bitte neu auswählen.");
@@ -453,7 +434,7 @@ socket.on("driverRegisterResult", ({ ok, message }) => {
   showMsg(message);
 
   if (ok){
-    // direkt auf Viewer umleiten
+    // nach erfolgreicher Anmeldung direkt in die Viewer-Ansicht
     window.location.href = "/viewer.html";
   }
 });

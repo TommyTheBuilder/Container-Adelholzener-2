@@ -99,7 +99,7 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   overflow:hidden;
   cursor: pointer;
   user-select: none;
-  transition: transform .08s ease;
+  transition: transform .08s ease, opacity .08s ease;
 }
 .slot:active{ transform: scale(.99); }
 
@@ -121,13 +121,25 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
 .slotName{ font-weight: 900; letter-spacing:.2px; }
-.timePill{
-  font-size: 12px;
+
+.timeBig{
+  margin-top: 10px;
+  width: 100%;
+  text-align: center;
+  font-weight: 950;
+  font-size: 28px;
+  letter-spacing: 2px;
+  padding: 10px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.90);
+  color: #0b1220;
+}
+.timeSmallHint{
+  text-align: center;
+  margin-top: 6px;
+  font-size: 11px;
   color: var(--muted);
-  padding: 5px 8px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-  border-radius: 999px;
 }
 
 .slotBody{
@@ -135,7 +147,7 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   display:flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 92px;
+  min-height: 140px;
   justify-content: center;
 }
 
@@ -147,7 +159,7 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   font-size: 12px;
 }
 .statusText{
-  font-weight: 800;
+  font-weight: 900;
   color: var(--white);
 }
 
@@ -199,7 +211,7 @@ input{
   border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.10);
   color: var(--white);
-  font-weight: 900;
+  font-weight: 950;
   cursor: pointer;
   font-size: 16px;
 }
@@ -236,10 +248,10 @@ input{
   <div class="wrap top">
     <div>
       <h1>Fahrer Anmeldung</h1>
-      <div class="sub">Wähle deinen Container und trage dein Kennzeichen ein.</div>
+      <div class="sub">Nur Container mit Termin-Uhrzeit sind auswählbar.</div>
     </div>
     <div class="legend">
-      <div class="badge"><span class="dot red"></span>Warten (frei)</div>
+      <div class="badge"><span class="dot red"></span>Frei</div>
       <div class="badge"><span class="dot orange"></span>Angemeldet</div>
       <div class="badge"><span class="dot green"></span>An die Rampe</div>
     </div>
@@ -263,7 +275,7 @@ input{
       <div id="msg" class="msg"></div>
 
       <div class="small">
-        Hinweis: Bereits belegte Container können nicht ausgewählt werden. Wenn alles belegt ist, bitte beim Personal melden.
+        Hinweis: Container ohne Termin-Uhrzeit sind nicht auswählbar.
       </div>
     </div>
   </div>
@@ -287,13 +299,23 @@ function statusText(status){
   return "Warten";
 }
 
-// "frei" = rot UND kein Kennzeichen
+// frei = rot + kein Kennzeichen
 function isFree(c){
   return c.status === "red" && (!c.plate || !c.plate.trim());
 }
 
+// Termin gesetzt?
+function hasTime(c){
+  return !!(c.time && c.time.trim());
+}
+
+// Fahrer darf auswählen, wenn Termin gesetzt UND frei
+function isSelectableForDriver(c){
+  return hasTime(c) && isFree(c);
+}
+
 function timeText(c){
-  return (c.time && c.time.trim()) ? c.time.trim() : "--:--";
+  return hasTime(c) ? c.time.trim() : "--:--";
 }
 
 function showMsg(text){
@@ -316,28 +338,38 @@ function updateSelectedInfo(){
   const c = state[selectedId];
   const t = timeText(c);
   selInfoEl.innerHTML = `Ausgewählt: <b>Container ${selectedId}</b> · Termin: <b>${t}</b>`;
-
-  // Button nur aktiv, wenn frei
-  btnEl.disabled = !isFree(c);
+  btnEl.disabled = !isSelectableForDriver(c);
 }
 
 function renderAll(){
   gridEl.innerHTML = "";
+
   for (let i = 1; i <= 8; i++){
     const c = state[i];
-    const free = isFree(c);
+    const selectable = isSelectableForDriver(c);
     const time = timeText(c);
 
+    // Deaktivieren, wenn nicht auswählbar (Termin fehlt ODER nicht frei)
+    const disabled = !selectable;
     const slot = document.createElement("div");
-    slot.className = "slot" + (free ? "" : " disabled") + (selectedId === i ? " selected" : "");
+    slot.className = "slot" + (disabled ? " disabled" : "") + (selectedId === i ? " selected" : "");
     slot.id = "slot-" + i;
+
+    // Status im Kopf: warum disabled?
+    let headNote = "";
+    if (!hasTime(c)) headNote = "kein Termin";
+    else if (!isFree(c)) headNote = "belegt";
+    else headNote = "frei";
 
     slot.innerHTML = `
       <div class="slotTop">
         <div class="slotName">Container ${i}</div>
-        <div class="timePill">⏱ ${time}</div>
+        <div style="color: var(--muted); font-size: 12px;">${headNote}</div>
       </div>
       <div class="slotBody">
+        <div class="timeBig">⏱ ${time}</div>
+        <div class="timeSmallHint">Termin-Uhrzeit</div>
+
         <div class="statusRow">
           <div>Status</div>
           <div class="statusText">${statusText(c.status)}</div>
@@ -349,9 +381,12 @@ function renderAll(){
     slot.addEventListener("click", () => {
       clearMsg();
 
-      // Auswahl erlauben: frei ODER bereits ausgewählt (damit man wieder abwählen kann)
-      if (!free && selectedId !== i){
-        showMsg("Dieser Container ist bereits belegt. Bitte einen freien Container wählen.");
+      if (disabled){
+        if (!hasTime(c)){
+          showMsg("Dieser Container hat noch keinen Termin. Bitte einen Container mit Uhrzeit wählen.");
+        } else {
+          showMsg("Dieser Container ist bereits belegt. Bitte einen anderen wählen.");
+        }
         return;
       }
 
@@ -368,10 +403,10 @@ function renderAll(){
 function applyOne(id, data){
   state[id] = data;
 
-  // Wenn der ausgewählte Container gerade belegt wurde -> Auswahl entfernen
-  if (selectedId === id && !isFree(data)){
+  // Wenn ausgewählt, aber nicht mehr auswählbar -> Auswahl entfernen
+  if (selectedId === id && !isSelectableForDriver(data)){
     selectedId = null;
-    showMsg("Dein ausgewählter Container ist nicht mehr frei. Bitte neu auswählen.");
+    showMsg("Dein ausgewählter Container ist nicht mehr verfügbar. Bitte neu auswählen.");
   }
 
   renderAll();
@@ -398,8 +433,8 @@ btnEl.addEventListener("click", () => {
   }
 
   const c = state[selectedId];
-  if (!isFree(c)){
-    showMsg("Dieser Container ist nicht mehr frei. Bitte einen anderen wählen.");
+  if (!isSelectableForDriver(c)){
+    showMsg("Dieser Container ist nicht auswählbar. Bitte einen anderen wählen.");
     return;
   }
 
@@ -418,11 +453,8 @@ socket.on("driverRegisterResult", ({ ok, message }) => {
   showMsg(message);
 
   if (ok){
-    // Optional: UI sperren nach Erfolg
-    gridEl.style.pointerEvents = "none";
-    plateEl.disabled = true;
-    btnEl.disabled = true;
-    selInfoEl.innerHTML = "✅ Anmeldung erfolgreich. Bitte warten.";
+    // direkt auf Viewer umleiten
+    window.location.href = "/viewer.html";
   }
 });
 </script>

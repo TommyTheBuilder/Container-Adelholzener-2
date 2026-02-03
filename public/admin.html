@@ -351,4 +351,141 @@ function showToast(msg){
 
 // ===== Cards =====
 function renderAll(){
-  const grid = document.getElement
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  for(let i=1;i<=8;i++){
+    const c = current[i];
+    const reg = registeredTime(c.registeredAt);
+
+    const card = document.createElement("div");
+    card.className = "card " + cardClass(c.status);
+    card.id = "card-"+i;
+
+    card.innerHTML = `
+      <div class="cardTop">
+        <div class="name">Container ${i}</div>
+        <div class="statusTag ${tagClass(c.status)}" id="tag-${i}">${statusText(c.status)}</div>
+      </div>
+
+      <div class="controls">
+        <div class="regBox" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
+
+        <div>
+          <label>Kennzeichen (vom Fahrer)</label>
+          <div class="readonly" id="plate-${i}">${c.plate && c.plate.trim() ? c.plate : "---"}</div>
+          <div class="note">Bei Anmeldung wird Status automatisch <b>Orange</b>.</div>
+        </div>
+
+        <div>
+          <label>Termin (Uhrzeit)</label>
+          <input type="time" id="time-${i}" value="${c.time || ""}" />
+          <div class="note">Änderung wird sofort gespeichert.</div>
+        </div>
+
+        <div class="row">
+          <button class="btn ${c.status==="red" ? "redActive" : ""}" id="btnR-${i}">Rot</button>
+          <button class="btn ${c.status==="green" ? "greenActive" : ""}" id="btnG-${i}">Grün</button>
+        </div>
+
+        <button class="smallBtn" id="reset-${i}" style="width:100%;">Container zurücksetzen</button>
+      </div>
+    `;
+
+    grid.appendChild(card);
+
+    // Zeit ändern (debounce)
+    const timeEl = document.getElementById("time-"+i);
+    let timeTimer = null;
+    timeEl.addEventListener("input", (e) => {
+      clearTimeout(timeTimer);
+      timeTimer = setTimeout(() => {
+        socket.emit("adminSetTime", { id: i, time: e.target.value });
+      }, 200);
+    });
+
+    // Status Buttons (nur rot/grün)
+    document.getElementById("btnR-"+i).addEventListener("click", () => {
+      socket.emit("adminSetStatus", { id: i, status: "red" });
+    });
+    document.getElementById("btnG-"+i).addEventListener("click", () => {
+      socket.emit("adminSetStatus", { id: i, status: "green" });
+    });
+
+    // Container Reset
+    document.getElementById("reset-"+i).addEventListener("click", () => {
+      if (confirm(`Container ${i} wirklich zurücksetzen?`)) {
+        socket.emit("adminResetContainer", { id: i });
+      }
+    });
+  }
+}
+
+function applyOne(id, data){
+  current[id] = data;
+
+  // Card highlight für Orange
+  const card = document.getElementById("card-"+id);
+  card.className = "card " + cardClass(data.status);
+
+  // Tag
+  const tag = document.getElementById("tag-"+id);
+  tag.textContent = statusText(data.status);
+  tag.className = "statusTag " + tagClass(data.status);
+
+  // Plate
+  document.getElementById("plate-"+id).textContent = data.plate && data.plate.trim() ? data.plate : "---";
+
+  // Reg Time
+  const reg = registeredTime(data.registeredAt);
+  const regEl = document.getElementById("reg-"+id);
+  if (regEl) regEl.textContent = reg;
+
+  // Zeit nur updaten, wenn nicht gerade editiert
+  const t = document.getElementById("time-"+id);
+  if (t && document.activeElement !== t) t.value = data.time || "";
+
+  // Buttons
+  const btnR = document.getElementById("btnR-"+id);
+  const btnG = document.getElementById("btnG-"+id);
+  if (btnR && btnG){
+    btnR.classList.toggle("redActive", data.status === "red");
+    btnG.classList.toggle("greenActive", data.status === "green");
+  }
+}
+
+socket.on("init", (state) => {
+  current = state;
+  socket.emit("adminAuth", { key });
+});
+
+socket.on("adminAuthResult", ({ ok }) => {
+  isAuthed = !!ok;
+  document.getElementById("authBlock").style.display = isAuthed ? "none" : "block";
+  document.getElementById("grid").style.display = isAuthed ? "grid" : "none";
+
+  if (isAuthed){
+    renderAll();
+    showToast("Admin aktiviert");
+  } else {
+    showToast("Kein Admin-Zugriff");
+  }
+});
+
+socket.on("statusChanged", ({ id, data }) => {
+  if (!isAuthed) return;
+  applyOne(id, data);
+  showToast(`Container ${id}: ${statusText(data.status)}`);
+});
+
+// Reset All
+document.getElementById("resetAllBtn").addEventListener("click", () => {
+  if (!isAuthed) return;
+  if (confirm("Alle Container wirklich zurücksetzen?")) {
+    socket.emit("resetAll");
+  }
+});
+</script>
+</body>
+</html>
+

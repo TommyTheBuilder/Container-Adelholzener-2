@@ -10,29 +10,44 @@ const io = new Server(server);
 
 // ====== CONFIG ======
 const PORT = process.env.PORT || 3000;
-const ADMIN_KEY = process.env.ADMIN_KEY || "333"; // bei Render als ENV setzen!
+const ADMIN_KEY = process.env.ADMIN_KEY || "CHANGE_ME";
 const DATA_FILE = path.join(__dirname, "data.json");
 // ====================
 
 app.use(express.static("public"));
 
-// Standard-Daten
-const defaultState = () => {
+// Komfort: Root öffnet Viewer
+app.get("/", (req, res) => res.redirect("/viewer.html"));
+
+const STATUSES = ["red", "orange", "green"]; // rot=warten, orange=angemeldet, grün=rampe
+
+function defaultState() {
   const obj = {};
-  for (let i = 1; i <= 8; i++) obj[i] = { color: "red", plate: "" };
+  for (let i = 1; i <= 8; i++) {
+    obj[i] = {
+      status: "red",
+      plate: "",
+      time: "",          // "HH:MM"
+      registeredAt: ""   // ISO string
+    };
+  }
   return obj;
-};
+}
 
 function loadState() {
   try {
     if (!fs.existsSync(DATA_FILE)) return defaultState();
     const raw = fs.readFileSync(DATA_FILE, "utf8");
     const data = JSON.parse(raw);
-    // Minimal-Validation
+
+    // Minimal-Validation + Auffüllen
     for (let i = 1; i <= 8; i++) {
-      if (!data[i]) data[i] = { color: "red", plate: "" };
-      if (!["red", "green"].includes(data[i].color)) data[i].color = "red";
+      if (!data[i]) data[i] = defaultState()[i];
+
+      if (!STATUSES.includes(data[i].status)) data[i].status = "red";
       if (typeof data[i].plate !== "string") data[i].plate = "";
+      if (typeof data[i].time !== "string") data[i].time = "";
+      if (typeof data[i].registeredAt !== "string") data[i].registeredAt = "";
     }
     return data;
   } catch {
@@ -48,15 +63,18 @@ function saveState(state) {
   }
 }
 
-let containerStatus = loadState();
+let containers = loadState();
+
+function emitOne(id) {
+  io.emit("statusChanged", { id, data: containers[id] });
+}
 
 io.on("connection", (socket) => {
-  // init an jeden Client
-  socket.emit("init", containerStatus);
-
-  // admin auth status
   socket.data.isAdmin = false;
 
+  socket.emit("init", containers);
+
+  // ===== Admin Auth =====
   socket.on("adminAuth", ({ key }) => {
     if (key && key === ADMIN_KEY) {
       socket.data.isAdmin = true;
@@ -66,31 +84,90 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("updateStatus", ({ id, color }) => {
-    if (!socket.data.isAdmin) return;
-    if (!containerStatus[id]) return;
-    if (!["red", "green"].includes(color)) return;
+  // ===== Fahrer: Registrierung =====
+  // Regel: Fahrer darf NICHT überschreiben, wenn Slot nicht frei ist.
+  // "frei" = status == red UND plate leer
+  socket.on("driverRegister", ({ id, plate }) => {
+    const cid = Number(id);
+    if (!containers[cid]) {
+      socket.emit("driverRegisterResult", { ok: false, message: "Ungültiger Container." });
+      return;
+    }
 
-    containerStatus[id].color = color;
-    saveState(containerStatus);
-    io.emit("statusChanged", { id, data: containerStatus[id] });
+    const safePlate = String(plate ?? "").trim().toUpperCase().slice(0, 20);
+    if (!safePlate) {
+      socket.emit("driverRegisterResult", { ok: false, message: "Bitte Kennzeichen eingeben." });
+      return;
+    }
+
+    const isFree = containers[cid].status === "red" && !containers[cid].plate.trim();
+    if (!isFree) {
+      socket.emit("driverRegisterResult", {
+        ok: false,
+        message: "Dieser Container ist bereits belegt. Bitte anderen Container wählen oder beim Personal melden."
+      });
+      return;
+    }
+
+    containers[cid].plate = safePlate;
+    containers[cid].status = "orange"; // Angemeldet
+    containers[cid].registeredAt = new Date().toISOString();
+
+    saveState(containers);
+    emitOne(cid);
+
+    socket.emit("driverRegisterResult", { ok: true, message: "Erfolgreich angemeldet. Bitte warten." });
   });
 
-  socket.on("updatePlate", ({ id, plate }) => {
+  // ===== Admin: Status setzen (nur rot/grün) =====
+  socket.on("adminSetStatus", ({ id, status }) => {
     if (!socket.data.isAdmin) return;
-    if (!containerStatus[id]) return;
 
-    const safePlate = String(plate ?? "").trim().slice(0, 20);
-    containerStatus[id].plate = safePlate;
-    saveState(containerStatus);
-    io.emit("statusChanged", { id, data: containerStatus[id] });
+    const cid = Number(id);
+    if (!containers[cid]) return;
+
+    // Admin darf nur rot oder grün setzen (orange nur durch Fahrer)
+    if (status !== "red" && status !== "green") return;
+
+    containers[cid].status = status;
+    saveState(containers);
+    emitOne(cid);
   });
 
+  // ===== Admin: Termin setzen =====
+  socket.on("adminSetTime", ({ id, time }) => {
+    if (!socket.data.isAdmin) return;
+
+    const cid = Number(id);
+    if (!containers[cid]) return;
+
+    const safeTime = String(time ?? "").trim().slice(0, 5); // "HH:MM"
+    // sehr leichte Prüfung
+    if (safeTime && !/^\d{2}:\d{2}$/.test(safeTime)) return;
+
+    containers[cid].time = safeTime;
+    saveState(containers);
+    emitOne(cid);
+  });
+
+  // ===== Admin: Container zurücksetzen =====
+  socket.on("adminResetContainer", ({ id }) => {
+    if (!socket.data.isAdmin) return;
+
+    const cid = Number(id);
+    if (!containers[cid]) return;
+
+    containers[cid] = defaultState()[cid];
+    saveState(containers);
+    emitOne(cid);
+  });
+
+  // ===== Admin: Alles zurücksetzen =====
   socket.on("resetAll", () => {
     if (!socket.data.isAdmin) return;
-    containerStatus = defaultState();
-    saveState(containerStatus);
-    io.emit("init", containerStatus);
+    containers = defaultState();
+    saveState(containers);
+    io.emit("init", containers);
   });
 });
 

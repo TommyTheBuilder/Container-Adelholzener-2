@@ -1,80 +1,63 @@
-<main>
-  <div class="wrap">
-    <div id="grid" class="grid"></div>
-  </div>
-</main>
-
-<div id="toast" class="toast"></div>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Viewer</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  body{margin:0;font-family:Arial;background:#0b1220;color:#f6f8ff}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:12px}
+  @media(min-width:860px){.grid{grid-template-columns:repeat(4,1fr)}}
+  .card{border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px;background:rgba(255,255,255,.05)}
+  .plate{margin-top:10px;background:white;color:#0b1220;font-weight:900;font-size:28px;letter-spacing:2px;padding:10px;border-radius:12px;text-align:center}
+  .pill{display:inline-block;margin-top:8px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.12);font-size:12px}
+  .bar{height:10px;border-radius:999px;margin-top:10px;background:rgba(255,255,255,.10);overflow:hidden}
+  .fill{height:100%}
+  .red{background:#ef4444}
+  .orange{background:#f59e0b}
+  .green{background:#22c55e}
+</style>
+</head>
+<body>
+<div id="grid" class="grid"></div>
 
 <script>
 const socket = io();
 
-function statusText(status){
-  if (status === "green") return "An die Rampe";
-  if (status === "orange") return "Angemeldet";
+function statusText(s){
+  if(s==="green") return "An die Rampe";
+  if(s==="orange") return "Angemeldet";
   return "Warten";
 }
-
-function showToast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.style.display = "block";
-  clearTimeout(showToast._to);
-  showToast._to = setTimeout(()=> t.style.display="none", 2200);
-}
+function timeText(t){ return (t && t.trim()) ? t.trim() : "--:--"; }
+function plateText(p){ return (p && p.trim()) ? p.trim() : "---"; }
 
 function renderAll(state){
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
   for(let i=1;i<=8;i++){
     const c = state[i];
-    const plate = (c.plate && c.plate.trim()) ? c.plate.trim() : "---";
-    const time = (c.time && c.time.trim()) ? c.time.trim() : "--:--";
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.id = "card-" + i;
-    card.innerHTML = `
-      <div class="cardTop">
-        <div class="name">Container ${i}</div>
-        <div class="pills">
-          <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
-          <div class="pill" id="time-${i}">⏱ ${time}</div>
-        </div>
-      </div>
-      <div class="statusArea">
-        <div class="bigPlate" id="plate-${i}">${plate}</div>
-        <div class="metaRow">
-          <div id="metaStatus-${i}">${statusText(c.status)}</div>
-          <div id="metaTime-${i}">Termin: ${time}</div>
-        </div>
-        <div class="bar"><div class="barFill ${c.status}" id="bar-${i}"></div></div>
-      </div>
+    const div = document.createElement("div");
+    div.className = "card";
+    div.id = "card-"+i;
+    div.innerHTML = `
+      <div><b>Container ${i}</b></div>
+      <div class="pill">⏱ ${timeText(c.time)} · ${statusText(c.status)}</div>
+      <div class="plate" id="plate-${i}">${plateText(c.plate)}</div>
+      <div class="bar"><div class="fill ${c.status}" id="bar-${i}"></div></div>
     `;
-    grid.appendChild(card);
+    grid.appendChild(div);
   }
 }
 
 function applyOne(id, data){
-  const plate = (data.plate && data.plate.trim()) ? data.plate.trim() : "---";
-  const time = (data.time && data.time.trim()) ? data.time.trim() : "--:--";
-
-  document.getElementById("pill-"+id).textContent = statusText(data.status);
-  document.getElementById("time-"+id).textContent = "⏱ " + time;
-
-  document.getElementById("plate-"+id).textContent = plate;
-  document.getElementById("metaStatus-"+id).textContent = statusText(data.status);
-  document.getElementById("metaTime-"+id).textContent = "Termin: " + time;
-
-  document.getElementById("bar-"+id).className = "barFill " + data.status;
+  document.getElementById("plate-"+id).textContent = plateText(data.plate);
+  document.getElementById("bar-"+id).className = "fill " + data.status;
 }
 
 socket.on("init", (state) => renderAll(state));
-
-socket.on("statusChanged", ({ id, data }) => {
-  applyOne(id, data);
-  showToast(`Container ${id}: ${statusText(data.status)} · ${data.plate ? data.plate : "---"}`);
-});
+socket.on("statusChanged", ({ id, data }) => applyOne(id, data));
 </script>
 </body>
 </html>

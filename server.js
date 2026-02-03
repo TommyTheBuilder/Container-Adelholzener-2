@@ -10,7 +10,7 @@ const io = new Server(server);
 
 // ====== CONFIG ======
 const PORT = process.env.PORT || 3000;
-const ADMIN_KEY = process.env.ADMIN_KEY || "CHANGE_ME";
+const ADMIN_KEY = process.env.ADMIN_KEY || "333";
 const DATA_FILE = path.join(__dirname, "data.json");
 const HISTORY_FILE = path.join(__dirname, "history.json");
 const HISTORY_MAX = 5000; // max Einträge, dann werden die ältesten entfernt
@@ -297,3 +297,4 @@ server.listen(PORT, () => {
   console.log(`Server läuft auf Port ${PORT}`);
   console.log(`ADMIN_KEY ist gesetzt? ${ADMIN_KEY !== "CHANGE_ME"}`);
 });
+

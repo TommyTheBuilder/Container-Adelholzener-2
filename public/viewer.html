@@ -13,6 +13,7 @@
   --muted:#a7b3d1;
   --white:#f6f8ff;
   --green:#22c55e;
+  --orange:#f59e0b;
   --red:#ef4444;
   --stroke:rgba(255,255,255,.08);
   --shadow: 0 10px 30px rgba(0,0,0,.35);
@@ -52,29 +53,19 @@ header{
   flex-wrap:wrap;
 }
 
-h1{
-  margin:0;
-  font-size: 20px;
-  letter-spacing:.4px;
-}
-.sub{
-  margin:6px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-}
+h1{ margin:0; font-size: 20px; letter-spacing:.4px; }
+.sub{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
 
 .legend{
   display:flex;
-  gap:14px;
+  gap:10px;
   align-items:center;
   flex-wrap:wrap;
   color: var(--muted);
   font-size: 13px;
 }
 .badge{
-  display:flex;
-  align-items:center;
-  gap:8px;
+  display:flex; align-items:center; gap:8px;
   padding: 8px 10px;
   border-radius: 999px;
   border:1px solid var(--stroke);
@@ -82,6 +73,7 @@ h1{
 }
 .dot{width:10px;height:10px;border-radius:999px}
 .dot.red{background:var(--red)}
+.dot.orange{background:var(--orange)}
 .dot.green{background:var(--green)}
 
 main .wrap{ padding-top: 18px; padding-bottom: 22px; }
@@ -110,11 +102,11 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
   justify-content:space-between;
   border-bottom:1px solid var(--stroke);
 }
-.name{
-  font-weight: 700;
-  letter-spacing:.3px;
-}
-.statePill{
+
+.name{ font-weight: 800; letter-spacing:.3px; }
+.pills{ display:flex; gap:8px; align-items:center; }
+
+.pill{
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 999px;
@@ -130,7 +122,7 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
   gap: 12px;
   align-items:center;
   justify-content:center;
-  min-height: 140px;
+  min-height: 160px;
 }
 
 .bigPlate{
@@ -145,6 +137,15 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
   color: #0b1220;
 }
 
+.metaRow{
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .bar{
   width: 100%;
   height: 10px;
@@ -154,8 +155,8 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
   border: 1px solid rgba(255,255,255,.08);
 }
 .barFill{ height:100%; width: 100%; }
-
 .barFill.red{ background: var(--red); }
+.barFill.orange{ background: var(--orange); }
 .barFill.green{ background: var(--green); }
 
 .toast{
@@ -180,10 +181,11 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
   <div class="wrap top">
     <div>
       <h1>Container Status</h1>
-      <div class="sub">Live-Übersicht – Rot = Warten · Grün = An die Rampe</div>
+      <div class="sub">Live-Übersicht</div>
     </div>
     <div class="legend">
       <div class="badge"><span class="dot red"></span>Warten</div>
+      <div class="badge"><span class="dot orange"></span>Angemeldet</div>
       <div class="badge"><span class="dot green"></span>An die Rampe</div>
     </div>
   </div>
@@ -200,8 +202,10 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
 <script>
 const socket = io();
 
-function stateText(color){
-  return color === "green" ? "An die Rampe" : "Warten";
+function statusText(status){
+  if (status === "green") return "An die Rampe";
+  if (status === "orange") return "Angemeldet";
+  return "Warten";
 }
 
 function showToast(msg){
@@ -212,23 +216,32 @@ function showToast(msg){
   showToast._to = setTimeout(()=> t.style.display="none", 2200);
 }
 
-function renderAll(status){
+function renderAll(state){
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
   for(let i=1;i<=8;i++){
-    const c = status[i];
+    const c = state[i];
     const plate = (c.plate && c.plate.trim()) ? c.plate.trim() : "---";
+    const time = (c.time && c.time.trim()) ? c.time.trim() : "--:--";
+
     const card = document.createElement("div");
     card.className = "card";
     card.id = "card-" + i;
     card.innerHTML = `
       <div class="cardTop">
         <div class="name">Container ${i}</div>
-        <div class="statePill" id="pill-${i}">${stateText(c.color)}</div>
+        <div class="pills">
+          <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
+          <div class="pill" id="time-${i}">⏱ ${time}</div>
+        </div>
       </div>
       <div class="statusArea">
         <div class="bigPlate" id="plate-${i}">${plate}</div>
-        <div class="bar"><div class="barFill ${c.color}" id="bar-${i}"></div></div>
+        <div class="metaRow">
+          <div id="metaStatus-${i}">${statusText(c.status)}</div>
+          <div id="metaTime-${i}">Termin: ${time}</div>
+        </div>
+        <div class="bar"><div class="barFill ${c.status}" id="bar-${i}"></div></div>
       </div>
     `;
     grid.appendChild(card);
@@ -236,20 +249,25 @@ function renderAll(status){
 }
 
 function applyOne(id, data){
-  document.getElementById("pill-"+id).textContent = stateText(data.color);
-  document.getElementById("bar-"+id).className = "barFill " + data.color;
-  document.getElementById("plate-"+id).textContent = (data.plate && data.plate.trim()) ? data.plate.trim() : "---";
+  const plate = (data.plate && data.plate.trim()) ? data.plate.trim() : "---";
+  const time = (data.time && data.time.trim()) ? data.time.trim() : "--:--";
+
+  document.getElementById("pill-"+id).textContent = statusText(data.status);
+  document.getElementById("time-"+id).textContent = "⏱ " + time;
+
+  document.getElementById("plate-"+id).textContent = plate;
+  document.getElementById("metaStatus-"+id).textContent = statusText(data.status);
+  document.getElementById("metaTime-"+id).textContent = "Termin: " + time;
+
+  document.getElementById("bar-"+id).className = "barFill " + data.status;
 }
 
-socket.on("init", (status) => {
-  renderAll(status);
-});
+socket.on("init", (state) => renderAll(state));
 
 socket.on("statusChanged", ({ id, data }) => {
   applyOne(id, data);
-  showToast(`Container ${id}: ${stateText(data.color)} · ${data.plate ? data.plate : "---"}`);
+  showToast(`Container ${id}: ${statusText(data.status)} · ${data.plate ? data.plate : "---"}`);
 });
 </script>
-
 </body>
 </html>

@@ -134,6 +134,7 @@ label{
   background: rgba(255,255,255,.04);
   color: var(--white);
 }
+
 .regBox{
   width:100%;
   padding: 10px 12px;
@@ -252,7 +253,7 @@ select{
   <div class="wrap top">
     <div>
       <h1>Admin Steuerung</h1>
-      <div class="sub">Orange = Fahrer angemeldet (inkl. Uhrzeit) · Historie wird gespeichert</div>
+      <div class="sub">Historie: verständliche Statusnamen · ohne Termin-Änderungen · ohne Details</div>
     </div>
 
     <div class="topActions">
@@ -278,7 +279,7 @@ select{
     <!-- Historie -->
     <div id="historyPanel" class="panel" style="display:none;">
       <div class="panelHead">
-        <div class="panelTitle">Historie (Anmeldungen & Aktionen)</div>
+        <div class="panelTitle">Historie</div>
         <div class="historyControls">
           <select id="histLimit">
             <option value="100">Letzte 100</option>
@@ -297,10 +298,9 @@ select{
           <thead>
             <tr>
               <th>Zeit</th>
-              <th>Typ</th>
+              <th>Status</th>
               <th>Container</th>
               <th>Kennzeichen</th>
-              <th>Details</th>
             </tr>
           </thead>
           <tbody id="histBody"></tbody>
@@ -320,6 +320,7 @@ let isAuthed = false;
 const params = new URLSearchParams(location.search);
 const key = params.get("key") || "";
 
+// ===== UI helpers =====
 function statusText(status){
   if (status === "green") return "An die Rampe";
   if (status === "orange") return "Angemeldet";
@@ -348,186 +349,6 @@ function showToast(msg){
   showToast._to = setTimeout(()=> t.style.display="none", 2200);
 }
 
+// ===== Cards =====
 function renderAll(){
-  const grid = document.getElementById("grid");
-  grid.innerHTML = "";
-
-  for(let i=1;i<=8;i++){
-    const c = current[i];
-    const reg = registeredTime(c.registeredAt);
-
-    const card = document.createElement("div");
-    card.className = "card " + cardClass(c.status);
-    card.id = "card-"+i;
-
-    card.innerHTML = `
-      <div class="cardTop">
-        <div class="name">Container ${i}</div>
-        <div class="statusTag ${tagClass(c.status)}" id="tag-${i}">${statusText(c.status)}</div>
-      </div>
-
-      <div class="controls">
-        <div class="regBox">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
-
-        <div>
-          <label>Kennzeichen (vom Fahrer)</label>
-          <div class="readonly" id="plate-${i}">${c.plate && c.plate.trim() ? c.plate : "---"}</div>
-          <div class="note">Bei Anmeldung wird Status automatisch <b>Orange</b>.</div>
-        </div>
-
-        <div>
-          <label>Termin (Uhrzeit)</label>
-          <input type="time" id="time-${i}" value="${c.time || ""}" />
-          <div class="note">Änderung wird sofort gespeichert.</div>
-        </div>
-
-        <div class="row">
-          <button class="btn ${c.status==="red" ? "redActive" : ""}" id="btnR-${i}">Rot</button>
-          <button class="btn ${c.status==="green" ? "greenActive" : ""}" id="btnG-${i}">Grün</button>
-        </div>
-
-        <button class="smallBtn" id="reset-${i}" style="width:100%;">Container zurücksetzen</button>
-      </div>
-    `;
-    grid.appendChild(card);
-
-    // Zeit ändern (debounce)
-    const timeEl = document.getElementById("time-"+i);
-    let timeTimer = null;
-    timeEl.addEventListener("input", (e) => {
-      clearTimeout(timeTimer);
-      timeTimer = setTimeout(() => {
-        socket.emit("adminSetTime", { id: i, time: e.target.value });
-      }, 200);
-    });
-
-    // Status Buttons (nur rot/grün)
-    document.getElementById("btnR-"+i).addEventListener("click", () => {
-      socket.emit("adminSetStatus", { id: i, status: "red" });
-    });
-    document.getElementById("btnG-"+i).addEventListener("click", () => {
-      socket.emit("adminSetStatus", { id: i, status: "green" });
-    });
-
-    // Container Reset
-    document.getElementById("reset-"+i).addEventListener("click", () => {
-      if (confirm(`Container ${i} wirklich zurücksetzen?`)) {
-        socket.emit("adminResetContainer", { id: i });
-      }
-    });
-  }
-}
-
-function applyOne(id, data){
-  current[id] = data;
-
-  const card = document.getElementById("card-"+id);
-  if (card) card.className = "card " + cardClass(data.status);
-
-  const tag = document.getElementById("tag-"+id);
-  if (tag){
-    tag.textContent = statusText(data.status);
-    tag.className = "statusTag " + tagClass(data.status);
-  }
-
-  const plate = document.getElementById("plate-"+id);
-  if (plate) plate.textContent = data.plate && data.plate.trim() ? data.plate : "---";
-
-  const reg = document.getElementById("reg-"+id);
-  if (reg) reg.textContent = registeredTime(data.registeredAt);
-
-  const t = document.getElementById("time-"+id);
-  if (t && document.activeElement !== t) t.value = data.time || "";
-
-  const btnR = document.getElementById("btnR-"+id);
-  const btnG = document.getElementById("btnG-"+id);
-  if (btnR && btnG){
-    btnR.classList.toggle("redActive", data.status === "red");
-    btnG.classList.toggle("greenActive", data.status === "green");
-  }
-}
-
-// ===== Historie UI =====
-function fmtDateTime(iso){
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleString([], { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit" });
-}
-
-function renderHistory(entries){
-  const body = document.getElementById("histBody");
-  body.innerHTML = "";
-
-  for (const e of entries){
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${fmtDateTime(e.at)}</td>
-      <td>${e.type || ""}</td>
-      <td>${e.containerId || ""}</td>
-      <td>${e.plate || ""}</td>
-      <td class="muted">${e.details ? JSON.stringify(e.details) : ""}</td>
-    `;
-    body.appendChild(tr);
-  }
-}
-
-function refreshHistory(){
-  const limit = Number(document.getElementById("histLimit").value || 200);
-  socket.emit("adminGetHistory", { limit });
-}
-
-socket.on("adminHistory", ({ entries }) => {
-  renderHistory(entries || []);
-});
-
-// ===== Auth + Init =====
-socket.on("init", (state) => {
-  current = state;
-  socket.emit("adminAuth", { key });
-});
-
-socket.on("adminAuthResult", ({ ok }) => {
-  isAuthed = !!ok;
-  document.getElementById("authBlock").style.display = isAuthed ? "none" : "block";
-  document.getElementById("grid").style.display = isAuthed ? "grid" : "none";
-  document.getElementById("historyPanel").style.display = isAuthed ? "block" : "none";
-
-  if (isAuthed){
-    renderAll();
-    refreshHistory();
-    showToast("Admin aktiviert");
-  } else {
-    showToast("Kein Admin-Zugriff");
-  }
-});
-
-socket.on("statusChanged", ({ id, data }) => {
-  if (!isAuthed) return;
-  applyOne(id, data);
-});
-
-// Buttons
-document.getElementById("resetAllBtn").addEventListener("click", () => {
-  if (!isAuthed) return;
-  if (confirm("Alle Container wirklich zurücksetzen?")) socket.emit("resetAll");
-});
-
-document.getElementById("histRefresh").addEventListener("click", () => {
-  if (!isAuthed) return;
-  refreshHistory();
-});
-
-document.getElementById("histCSV").addEventListener("click", () => {
-  if (!isAuthed) return;
-  // CSV vom Server (nur mit key)
-  window.location.href = "/admin-history.csv?key=" + encodeURIComponent(key);
-});
-
-document.getElementById("histClear").addEventListener("click", () => {
-  if (!isAuthed) return;
-  if (confirm("Historie wirklich löschen?")) socket.emit("adminClearHistory");
-});
-</script>
-</body>
-</html>
+  const grid = document.getElement

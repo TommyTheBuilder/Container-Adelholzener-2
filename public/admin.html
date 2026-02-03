@@ -9,10 +9,10 @@
 <style>
 :root{
   --bg:#0b1220;
-  --card:#111a2e;
   --muted:#a7b3d1;
   --white:#f6f8ff;
   --green:#22c55e;
+  --orange:#f59e0b;
   --red:#ef4444;
   --stroke:rgba(255,255,255,.08);
   --shadow: 0 10px 30px rgba(0,0,0,.35);
@@ -27,6 +27,7 @@ body{
               radial-gradient(900px 600px at 80% 20%, rgba(34,197,94,.10), transparent 55%),
               var(--bg);
 }
+
 header{
   position: sticky;
   top: 0;
@@ -35,41 +36,40 @@ header{
   border-bottom: 1px solid var(--stroke);
   z-index: 10;
 }
-.wrap{
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 16px 18px;
-}
-.top{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:14px;
-  flex-wrap:wrap;
-}
-h1{ margin:0; font-size: 20px; letter-spacing:.4px; }
-.sub{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
+.wrap{ max-width:1100px; margin:0 auto; padding:16px 18px; }
+.top{ display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+h1{ margin:0; font-size:20px; letter-spacing:.4px; }
+.sub{ margin:6px 0 0; color:var(--muted); font-size:13px; }
 
 .legend{
-  display:flex;
-  gap:14px;
-  align-items:center;
-  flex-wrap:wrap;
-  color: var(--muted);
-  font-size: 13px;
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  color: var(--muted); font-size: 13px;
 }
 .badge{
   display:flex; align-items:center; gap:8px;
-  padding: 8px 10px;
-  border-radius: 999px;
+  padding: 8px 10px; border-radius:999px;
   border:1px solid var(--stroke);
   background: rgba(255,255,255,.03);
 }
 .dot{width:10px;height:10px;border-radius:999px}
 .dot.red{background:var(--red)}
+.dot.orange{background:var(--orange)}
 .dot.green{background:var(--green)}
 
-main .wrap{ padding-top: 18px; padding-bottom: 22px; }
+.topActions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.smallBtn{
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.06);
+  color: var(--white);
+  cursor:pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+.smallBtn:hover{ background: rgba(255,255,255,.10); }
+
+main .wrap{ padding-top:18px; padding-bottom:22px; }
 
 .grid{
   display:grid;
@@ -95,7 +95,15 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
   justify-content:space-between;
   border-bottom:1px solid var(--stroke);
 }
-.name{ font-weight: 800; letter-spacing:.3px; }
+.name{ font-weight: 900; letter-spacing:.3px; }
+.statusTag{
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border:1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+}
 
 .controls{
   padding: 14px;
@@ -111,7 +119,17 @@ label{
   margin-bottom:6px;
 }
 
-input{
+.readonly{
+  width:100%;
+  font-size: 18px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--white);
+}
+
+input[type="time"]{
   width:100%;
   font-size: 18px;
   padding: 10px 12px;
@@ -119,13 +137,10 @@ input{
   border: 1px solid var(--stroke);
   background: rgba(255,255,255,.06);
   color: var(--white);
-  outline: none;
+  outline:none;
 }
 
-.row{
-  display:flex;
-  gap:10px;
-}
+.row{ display:flex; gap:10px; }
 
 .btn{
   flex:1;
@@ -134,7 +149,7 @@ input{
   border: 1px solid var(--stroke);
   background: rgba(255,255,255,.06);
   color: var(--white);
-  font-weight: 800;
+  font-weight: 900;
   cursor: pointer;
 }
 .btn:hover{ background: rgba(255,255,255,.10); }
@@ -148,27 +163,18 @@ input{
   border-color: rgba(34,197,94,.35);
 }
 
-.topActions{
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-.smallBtn{
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.06);
-  color: var(--white);
-  cursor:pointer;
-  font-size: 13px;
-  font-weight: 800;
-}
-.smallBtn:hover{ background: rgba(255,255,255,.10); }
-
-.notice{
-  margin-top: 6px;
-  color: var(--muted);
+.note{
   font-size: 12px;
+  color: var(--muted);
+}
+
+.block{
+  max-width: 520px;
+  margin: 18px auto 0;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
 }
 .toast{
   position: fixed;
@@ -184,14 +190,6 @@ input{
   display:none;
   font-size: 13px;
 }
-.block{
-  max-width: 520px;
-  margin: 18px auto 0;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.04);
-}
 </style>
 </head>
 
@@ -200,12 +198,14 @@ input{
   <div class="wrap top">
     <div>
       <h1>Admin Steuerung</h1>
-      <div class="sub">Rot = Warten · Grün = An die Rampe</div>
+      <div class="sub">Orange entsteht durch Fahrer-Anmeldung · Admin schaltet Rot/Grün</div>
     </div>
+
     <div class="topActions">
-      <button class="smallBtn" id="resetBtn">Alle zurücksetzen</button>
+      <button class="smallBtn" id="resetAllBtn">Alle zurücksetzen</button>
       <div class="legend">
         <div class="badge"><span class="dot red"></span>Warten</div>
+        <div class="badge"><span class="dot orange"></span>Angemeldet</div>
         <div class="badge"><span class="dot green"></span>An die Rampe</div>
       </div>
     </div>
@@ -216,7 +216,7 @@ input{
   <div class="wrap">
     <div id="authBlock" class="block" style="display:none">
       <div style="font-weight:900; font-size:16px;">Kein Admin-Zugriff</div>
-      <div class="notice">Füge <b>?key=DEIN_ADMIN_KEY</b> an die URL an oder setze den ENV <b>ADMIN_KEY</b> am Server.</div>
+      <div class="note">Öffne die Seite mit <b>?key=DEIN_ADMIN_KEY</b> oder setze am Server <b>ADMIN_KEY</b>.</div>
     </div>
 
     <div id="grid" class="grid" style="display:none"></div>
@@ -233,6 +233,12 @@ let isAuthed = false;
 const params = new URLSearchParams(location.search);
 const key = params.get("key") || "";
 
+function statusText(status){
+  if (status === "green") return "An die Rampe";
+  if (status === "orange") return "Angemeldet";
+  return "Warten";
+}
+
 function showToast(msg){
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -241,15 +247,13 @@ function showToast(msg){
   showToast._to = setTimeout(()=> t.style.display="none", 2200);
 }
 
-function stateText(color){
-  return color === "green" ? "An die Rampe" : "Warten";
-}
-
 function renderAll(){
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
+
   for(let i=1;i<=8;i++){
     const c = current[i];
+
     const card = document.createElement("div");
     card.className = "card";
     card.id = "card-"+i;
@@ -257,37 +261,56 @@ function renderAll(){
     card.innerHTML = `
       <div class="cardTop">
         <div class="name">Container ${i}</div>
-        <div style="color: var(--muted); font-size:12px;">${stateText(c.color)}</div>
+        <div class="statusTag" id="tag-${i}">${statusText(c.status)}</div>
       </div>
+
       <div class="controls">
         <div>
-          <label>Kennzeichen</label>
-          <input id="inp-${i}" value="${(c.plate||"").replace(/"/g,'&quot;')}" placeholder="z.B. B-AB 1234" />
-          <div class="notice">Änderung wird sofort gespeichert.</div>
+          <label>Kennzeichen (vom Fahrer)</label>
+          <div class="readonly" id="plate-${i}">${c.plate && c.plate.trim() ? c.plate : "---"}</div>
+          <div class="note">Wird durch Fahrer gesetzt → Status wird Orange.</div>
         </div>
+
+        <div>
+          <label>Termin (Uhrzeit)</label>
+          <input type="time" id="time-${i}" value="${c.time || ""}" />
+          <div class="note">Änderung wird sofort gespeichert.</div>
+        </div>
+
         <div class="row">
-          <button class="btn ${c.color==="red" ? "redActive":""}" id="btnR-${i}">Rot</button>
-          <button class="btn ${c.color==="green" ? "greenActive":""}" id="btnG-${i}">Grün</button>
+          <button class="btn ${c.status==="red" ? "redActive" : ""}" id="btnR-${i}">Rot</button>
+          <button class="btn ${c.status==="green" ? "greenActive" : ""}" id="btnG-${i}">Grün</button>
         </div>
+
+        <button class="smallBtn" id="reset-${i}" style="width:100%;">Container zurücksetzen</button>
       </div>
     `;
+
     grid.appendChild(card);
 
-    // Events
-    const inp = document.getElementById("inp-"+i);
-    let plateTimer = null;
-    inp.addEventListener("input", (e) => {
-      clearTimeout(plateTimer);
-      plateTimer = setTimeout(() => {
-        socket.emit("updatePlate", { id: i, plate: e.target.value });
-      }, 250); // kleines Debounce
+    // Zeit ändern (debounce)
+    const timeEl = document.getElementById("time-"+i);
+    let timeTimer = null;
+    timeEl.addEventListener("input", (e) => {
+      clearTimeout(timeTimer);
+      timeTimer = setTimeout(() => {
+        socket.emit("adminSetTime", { id: i, time: e.target.value });
+      }, 200);
     });
 
+    // Status Buttons (nur rot/grün)
     document.getElementById("btnR-"+i).addEventListener("click", () => {
-      socket.emit("updateStatus", { id: i, color: "red" });
+      socket.emit("adminSetStatus", { id: i, status: "red" });
     });
     document.getElementById("btnG-"+i).addEventListener("click", () => {
-      socket.emit("updateStatus", { id: i, color: "green" });
+      socket.emit("adminSetStatus", { id: i, status: "green" });
+    });
+
+    // Container Reset
+    document.getElementById("reset-"+i).addEventListener("click", () => {
+      if (confirm(`Container ${i} wirklich zurücksetzen?`)) {
+        socket.emit("adminResetContainer", { id: i });
+      }
     });
   }
 }
@@ -295,29 +318,23 @@ function renderAll(){
 function applyOne(id, data){
   current[id] = data;
 
-  // Buttons aktualisieren
+  document.getElementById("tag-"+id).textContent = statusText(data.status);
+  document.getElementById("plate-"+id).textContent = data.plate && data.plate.trim() ? data.plate : "---";
+
+  // Zeit nur updaten, wenn nicht gerade editiert
+  const t = document.getElementById("time-"+id);
+  if (t && document.activeElement !== t) t.value = data.time || "";
+
   const btnR = document.getElementById("btnR-"+id);
   const btnG = document.getElementById("btnG-"+id);
   if (btnR && btnG){
-    btnR.classList.toggle("redActive", data.color === "red");
-    btnG.classList.toggle("greenActive", data.color === "green");
+    btnR.classList.toggle("redActive", data.status === "red");
+    btnG.classList.toggle("greenActive", data.status === "green");
   }
-
-  // Input nur updaten, wenn es gerade nicht fokussiert ist (sonst nervig beim Tippen)
-  const inp = document.getElementById("inp-"+id);
-  if (inp && document.activeElement !== inp){
-    inp.value = data.plate || "";
-  }
-
-  // Status-Text in cardTop
-  const top = document.querySelector(`#card-${id} .cardTop div:last-child`);
-  if (top) top.textContent = stateText(data.color);
 }
 
-socket.on("init", (status) => {
-  current = status;
-
-  // Auth versuchen
+socket.on("init", (state) => {
+  current = state;
   socket.emit("adminAuth", { key });
 });
 
@@ -325,6 +342,7 @@ socket.on("adminAuthResult", ({ ok }) => {
   isAuthed = !!ok;
   document.getElementById("authBlock").style.display = isAuthed ? "none" : "block";
   document.getElementById("grid").style.display = isAuthed ? "grid" : "none";
+
   if (isAuthed){
     renderAll();
     showToast("Admin aktiviert");
@@ -336,13 +354,13 @@ socket.on("adminAuthResult", ({ ok }) => {
 socket.on("statusChanged", ({ id, data }) => {
   if (!isAuthed) return;
   applyOne(id, data);
-  showToast(`Container ${id}: ${stateText(data.color)}`);
+  showToast(`Container ${id}: ${statusText(data.status)}`);
 });
 
-// Reset
-document.getElementById("resetBtn").addEventListener("click", () => {
+// Reset All
+document.getElementById("resetAllBtn").addEventListener("click", () => {
   if (!isAuthed) return;
-  if (confirm("Alle Container zurücksetzen?")) {
+  if (confirm("Alle Container wirklich zurücksetzen?")) {
     socket.emit("resetAll");
   }
 });

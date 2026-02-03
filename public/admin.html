@@ -27,7 +27,6 @@ body{
               radial-gradient(900px 600px at 80% 20%, rgba(34,197,94,.10), transparent 55%),
               var(--bg);
 }
-
 header{
   position: sticky;
   top: 0;
@@ -86,45 +85,12 @@ main .wrap{ padding-top:18px; padding-bottom:22px; }
   border: 1px solid var(--stroke);
   box-shadow: var(--shadow);
   overflow:hidden;
-  position: relative;
 }
 
-/* Deutliches visuelles Signal je Status */
-.card.is-red{ border-color: rgba(239,68,68,.35); }
-.card.is-green{ border-color: rgba(34,197,94,.35); }
+/* sehr deutlicher Hinweis bei Orange */
 .card.is-orange{
-  border-color: rgba(245,158,11,.60);
-  box-shadow: 0 0 0 1px rgba(245,158,11,.35), var(--shadow);
-}
-
-/* Orange Banner */
-.banner{
-  position:absolute;
-  top: 10px;
-  right: 10px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 950;
-  letter-spacing: .6px;
-  border: 1px solid rgba(255,255,255,.14);
-  display:none;
-}
-.card.is-orange .banner{
-  display:block;
-  background: rgba(245,158,11,.18);
-  border-color: rgba(245,158,11,.45);
-  color: var(--white);
-}
-
-/* dezentes Pulsieren bei Orange */
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(245,158,11,.35), var(--shadow); }
-  70% { box-shadow: 0 0 0 10px rgba(245,158,11,0), var(--shadow); }
-  100% { box-shadow: 0 0 0 0 rgba(245,158,11,0), var(--shadow); }
-}
-.card.is-orange.pulse {
-  animation: pulse 1.6s ease-out 2;
+  border-color: rgba(245,158,11,.65);
+  box-shadow: 0 0 0 2px rgba(245,158,11,.22), var(--shadow);
 }
 
 .cardTop{
@@ -145,8 +111,6 @@ main .wrap{ padding-top:18px; padding-bottom:22px; }
   color: var(--muted);
   font-weight: 900;
 }
-
-/* StatusTag farbig */
 .tag-red{ background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.35); color: var(--white); }
 .tag-orange{ background: rgba(245,158,11,.20); border-color: rgba(245,158,11,.45); color: var(--white); }
 .tag-green{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); color: var(--white); }
@@ -173,6 +137,20 @@ label{
   border: 1px solid var(--stroke);
   background: rgba(255,255,255,.04);
   color: var(--white);
+}
+
+.regBox{
+  width:100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(245,158,11,.45);
+  background: rgba(245,158,11,.14);
+  color: var(--white);
+  font-weight: 900;
+  display:none;
+}
+.card.is-orange .regBox{
+  display:block;
 }
 
 input[type="time"]{
@@ -222,6 +200,7 @@ input[type="time"]{
   border: 1px solid var(--stroke);
   background: rgba(255,255,255,.04);
 }
+
 .toast{
   position: fixed;
   left: 50%;
@@ -244,7 +223,7 @@ input[type="time"]{
   <div class="wrap top">
     <div>
       <h1>Admin Steuerung</h1>
-      <div class="sub">Orange = Fahrer hat sich angemeldet (sehr auffällig markiert)</div>
+      <div class="sub">Orange = Fahrer angemeldet (inkl. Uhrzeit)</div>
     </div>
 
     <div class="topActions">
@@ -285,6 +264,24 @@ function statusText(status){
   return "Warten";
 }
 
+function tagClass(status){
+  if (status === "green") return "tag-green";
+  if (status === "orange") return "tag-orange";
+  return "tag-red";
+}
+
+function cardClass(status){
+  if (status === "orange") return "is-orange";
+  return "";
+}
+
+function registeredTime(iso){
+  if (!iso) return "--:--";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "--:--";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 function showToast(msg){
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -293,37 +290,27 @@ function showToast(msg){
   showToast._to = setTimeout(()=> t.style.display="none", 2200);
 }
 
-function tagClass(status){
-  if (status === "green") return "tag-green";
-  if (status === "orange") return "tag-orange";
-  return "tag-red";
-}
-
-function cardClass(status){
-  if (status === "green") return "is-green";
-  if (status === "orange") return "is-orange";
-  return "is-red";
-}
-
 function renderAll(){
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
 
   for(let i=1;i<=8;i++){
     const c = current[i];
+    const reg = registeredTime(c.registeredAt);
 
     const card = document.createElement("div");
     card.className = "card " + cardClass(c.status);
     card.id = "card-"+i;
 
     card.innerHTML = `
-
       <div class="cardTop">
         <div class="name">Container ${i}</div>
         <div class="statusTag ${tagClass(c.status)}" id="tag-${i}">${statusText(c.status)}</div>
       </div>
 
       <div class="controls">
+        <div class="regBox" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
+
         <div>
           <label>Kennzeichen (vom Fahrer)</label>
           <div class="readonly" id="plate-${i}">${c.plate && c.plate.trim() ? c.plate : "---"}</div>
@@ -377,12 +364,22 @@ function renderAll(){
 function applyOne(id, data){
   current[id] = data;
 
-  // Tag + Plate
+  // Card highlight für Orange
+  const card = document.getElementById("card-"+id);
+  card.className = "card " + cardClass(data.status);
+
+  // Tag
   const tag = document.getElementById("tag-"+id);
   tag.textContent = statusText(data.status);
   tag.className = "statusTag " + tagClass(data.status);
 
+  // Plate
   document.getElementById("plate-"+id).textContent = data.plate && data.plate.trim() ? data.plate : "---";
+
+  // Reg Time
+  const reg = registeredTime(data.registeredAt);
+  const regEl = document.getElementById("reg-"+id);
+  if (regEl) regEl.textContent = reg;
 
   // Zeit nur updaten, wenn nicht gerade editiert
   const t = document.getElementById("time-"+id);
@@ -394,15 +391,6 @@ function applyOne(id, data){
   if (btnR && btnG){
     btnR.classList.toggle("redActive", data.status === "red");
     btnG.classList.toggle("greenActive", data.status === "green");
-  }
-
-  // Card Styling + Pulse bei Orange
-  const card = document.getElementById("card-"+id);
-  card.classList.remove("is-red","is-orange","is-green","pulse");
-  card.classList.add(cardClass(data.status));
-  if (data.status === "orange"){
-    card.classList.add("pulse");
-    setTimeout(() => card.classList.remove("pulse"), 3500);
   }
 }
 

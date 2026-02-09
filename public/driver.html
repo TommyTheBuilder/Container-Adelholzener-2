@@ -311,6 +311,12 @@ function clearMsg(){
   msgEl.textContent = "";
 }
 
+function focusPlateInput(){
+  if (!plateEl) return;
+  plateEl.scrollIntoView({ behavior: "smooth", block: "center" });
+  plateEl.focus({ preventScroll: true });
+}
+
 function updateSelectedInfo(){
   if (!state || !selectedId){
     selInfoEl.innerHTML = "Bitte zuerst einen <b>Container</b> auswählen.";
@@ -376,6 +382,7 @@ function renderAll(){
       selectedId = (selectedId === i) ? null : i;
       renderAll();
       updateSelectedInfo();
+      if (selectedId) focusPlateInput();
     });
 
     gridEl.appendChild(slot);

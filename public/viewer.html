@@ -357,6 +357,7 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
 
 <script>
 const socket = io();
+let audioContext = null;
 
 function statusText(status){
   if (status === "green") return "An die Rampe";
@@ -433,8 +434,41 @@ function applyOne(id, data){
   document.getElementById("bar-"+id).className = "barFill " + data.status;
 }
 
+function triggerNotification(){
+  if (navigator.vibrate) {
+    navigator.vibrate([120, 80, 120]);
+  }
+
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === "suspended") {
+      audioContext.resume();
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    gainNode.gain.value = 0.15;
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.2);
+  } catch (error) {
+    console.warn("Konnte Benachrichtigungston nicht abspielen:", error);
+  }
+}
+
 socket.on("init", (state) => renderAll(state));
-socket.on("statusChanged", ({ id, data }) => applyOne(id, data));
+socket.on("statusChanged", ({ id, data }) => {
+  applyOne(id, data);
+  triggerNotification();
+});
 </script>
 </body>
 </html>

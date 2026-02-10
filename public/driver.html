@@ -169,6 +169,7 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
 .fill.orange{ background: var(--orange); }
 .fill.green{ background: var(--green); }
 
+
 .formCard{
   margin-top: 14px;
   border-radius: var(--radius);
@@ -284,6 +285,7 @@ function statusText(status){
 function hasTime(c){ return !!(c.time && c.time.trim()); }
 function timeText(c){ return hasTime(c) ? c.time.trim() : "--:--"; }
 
+
 // frei = rot + kein Kennzeichen
 function isFree(c){
   return c.status === "red" && (!c.plate || !c.plate.trim());
@@ -365,6 +367,7 @@ function renderAll(){
           <div>Angemeldet</div>
           <div class="regValue">${reg}</div>
         </div>
+
 
         <div class="bar"><div class="fill ${c.status}"></div></div>
       </div>

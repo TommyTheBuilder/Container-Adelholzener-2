@@ -172,6 +172,15 @@ input[type="time"]{
 .btn.greenActive{ background: rgba(34,197,94,.25); border-color: rgba(34,197,94,.35); }
 .note{ font-size: 12px; color: var(--muted); }
 
+.slotMapLink{
+  font-size: 12px;
+  line-height: 1.35;
+}
+.slotMapLink a{
+  color: #86efac;
+  font-weight: 800;
+}
+
 .block{
   max-width: 520px;
   margin: 18px auto 0;
@@ -339,6 +348,17 @@ function registeredTime(iso){
   if (isNaN(d.getTime())) return "--:--";
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
+function slotMapLinkHtml(status){
+  if (status !== "green") return "";
+  return `
+    <div class="slotMapLink">
+      <a href="https://maps.app.goo.gl/PCRKCpGGHQVNt7XG6" target="_blank" rel="noopener noreferrer">
+        📍 Route zur Rampe öffnen
+      </a>
+    </div>
+  `;
+}
+
 function showToast(msg){
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -384,6 +404,8 @@ function renderAll(){
           <button class="btn ${c.status==="red" ? "redActive" : ""}" id="btnR-${i}">Rot</button>
           <button class="btn ${c.status==="green" ? "greenActive" : ""}" id="btnG-${i}">Grün</button>
         </div>
+
+        <div id="map-${i}">${slotMapLinkHtml(c.status)}</div>
 
         <button class="smallBtn" id="reset-${i}" style="width:100%;">Container zurücksetzen</button>
       </div>
@@ -444,6 +466,9 @@ function applyOne(id, data){
     btnR.classList.toggle("redActive", data.status === "red");
     btnG.classList.toggle("greenActive", data.status === "green");
   }
+
+  const mapEl = document.getElementById("map-"+id);
+  if (mapEl) mapEl.innerHTML = slotMapLinkHtml(data.status);
 }
 
 // ===== Historie UI (ohne Details, mit Mapping, admin_set_time ausgeblendet) =====

@@ -331,6 +331,17 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
 .barFill.red{ background: var(--red); }
 .barFill.orange{ background: var(--orange); }
 .barFill.green{ background: var(--green); }
+
+.rampLink{
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.rampLink a{
+  color: #86efac;
+  font-weight: 800;
+}
 </style>
 </head>
 
@@ -373,6 +384,17 @@ function plateText(p){
   return (p && p.trim()) ? p.trim() : "---";
 }
 
+function rampLinkHtml(status){
+  if (status !== "green") return "";
+  return `
+    <div class="rampLink">
+      <a href="https://maps.app.goo.gl/PCRKCpGGHQVNt7XG6" target="_blank" rel="noopener noreferrer">
+        📍 Route zur Rampe öffnen
+      </a>
+    </div>
+  `;
+}
+
 // zeigt HH:MM aus registeredAt (lokale Zeit)
 function registeredTime(iso){
   if (!iso) return "--:--";
@@ -410,6 +432,7 @@ function renderAll(state){
           <div id="metaTime-${i}">Termin: ${time}</div>
           <div id="metaReg-${i}">Angemeldet: ${reg}</div>
         </div>
+        <div id="ramp-${i}">${rampLinkHtml(c.status)}</div>
         <div class="bar"><div class="barFill ${c.status}" id="bar-${i}"></div></div>
       </div>
     `;
@@ -430,6 +453,7 @@ function applyOne(id, data){
   document.getElementById("metaStatus-"+id).textContent = statusText(data.status);
   document.getElementById("metaTime-"+id).textContent = "Termin: " + time;
   document.getElementById("metaReg-"+id).textContent = "Angemeldet: " + reg;
+  document.getElementById("ramp-"+id).innerHTML = rampLinkHtml(data.status);
 
   document.getElementById("bar-"+id).className = "barFill " + data.status;
 }

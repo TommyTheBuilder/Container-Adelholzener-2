@@ -169,6 +169,15 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
 .fill.orange{ background: var(--orange); }
 .fill.green{ background: var(--green); }
 
+.rampLink{
+  font-size: 12px;
+  line-height: 1.35;
+}
+.rampLink a{
+  color: #86efac;
+  font-weight: 800;
+}
+
 .formCard{
   margin-top: 14px;
   border-radius: var(--radius);
@@ -284,6 +293,17 @@ function statusText(status){
 function hasTime(c){ return !!(c.time && c.time.trim()); }
 function timeText(c){ return hasTime(c) ? c.time.trim() : "--:--"; }
 
+function rampLinkHtml(status){
+  if (status !== "green") return "";
+  return `
+    <div class="rampLink">
+      <a href="https://maps.app.goo.gl/PCRKCpGGHQVNt7XG6" target="_blank" rel="noopener noreferrer">
+        📍 Route zur Rampe öffnen
+      </a>
+    </div>
+  `;
+}
+
 // frei = rot + kein Kennzeichen
 function isFree(c){
   return c.status === "red" && (!c.plate || !c.plate.trim());
@@ -365,6 +385,8 @@ function renderAll(){
           <div>Angemeldet</div>
           <div class="regValue">${reg}</div>
         </div>
+
+        ${rampLinkHtml(c.status)}
 
         <div class="bar"><div class="fill ${c.status}"></div></div>
       </div>

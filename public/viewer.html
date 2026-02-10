@@ -194,9 +194,14 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
 const socket = io();
 let audioContext = null;
 
+function isGreenStatus(status){
+  return String(status || "").trim().toLowerCase() === "green";
+}
+
 function statusText(status){
-  if (status === "green") return "An die Rampe";
-  if (status === "orange") return "Angemeldet";
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "green") return "An die Rampe";
+  if (normalized === "orange") return "Angemeldet";
   return "Warten";
 }
 
@@ -209,12 +214,15 @@ function plateText(p){
 }
 
 function rampLinkHtml(status){
-  if (status !== "green") return "";
+  if (!isGreenStatus(status)) return "";
   return `
     <div class="rampLink">
       <a href="https://maps.app.goo.gl/PCRKCpGGHQVNt7XG6" target="_blank" rel="noopener noreferrer">
         📍 Route zur Rampe öffnen
       </a>
+      <div style="margin-top:4px; color: var(--muted); font-size:12px; word-break: break-all;">
+        https://maps.app.goo.gl/PCRKCpGGHQVNt7XG6
+      </div>
     </div>
   `;
 }
@@ -257,7 +265,7 @@ function renderAll(state){
           <div id="metaReg-${i}">Angemeldet: ${reg}</div>
         </div>
         <div id="ramp-${i}" style="width:100%; margin-top:2px;">${rampLinkHtml(c.status)}</div>
-        <div class="bar"><div class="barFill ${c.status}" id="bar-${i}"></div></div>
+        <div class="bar"><div class="barFill ${String(c.status || "").trim().toLowerCase()}" id="bar-${i}"></div></div>
       </div>
     `;
 
@@ -279,7 +287,9 @@ function applyOne(id, data){
   document.getElementById("metaReg-"+id).textContent = "Angemeldet: " + reg;
   document.getElementById("ramp-"+id).innerHTML = rampLinkHtml(data.status);
 
-  document.getElementById("bar-"+id).className = "barFill " + data.status;
+  const normalized = String(data.status || "").trim().toLowerCase();
+  const safeStatus = ["red", "orange", "green"].includes(normalized) ? normalized : "red";
+  document.getElementById("bar-"+id).className = "barFill " + safeStatus;
 }
 
 function triggerNotification(){

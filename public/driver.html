@@ -64,6 +64,16 @@ h1{ margin:0; font-size: 20px; letter-spacing:.3px; }
   color: var(--muted);
   font-size: 12px;
 }
+.langToggle{
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, var(--card), var(--card2));
+  color: var(--white);
+  border-radius: 14px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
 .badge{
   display:flex;
   align-items:center;
@@ -236,13 +246,14 @@ input{
 <header>
   <div class="wrap top">
     <div>
-      <h1>Fahrer Anmeldung</h1>
-      <div class="sub">Nur Container mit Termin-Uhrzeit sind auswählbar.</div>
+      <h1 id="title">Fahrer Anmeldung</h1>
+      <div class="sub" id="subtitle">Nur Container mit Termin-Uhrzeit sind auswählbar.</div>
     </div>
     <div class="legend">
-      <div class="badge"><span class="dot red"></span>Frei</div>
-      <div class="badge"><span class="dot orange"></span>Angemeldet</div>
-      <div class="badge"><span class="dot green"></span>An die Rampe</div>
+      <button id="langToggle" class="langToggle" type="button">English</button>
+      <div class="badge"><span class="dot red"></span><span id="legend-red">Frei</span></div>
+      <div class="badge"><span class="dot orange"></span><span id="legend-orange">Angemeldet</span></div>
+      <div class="badge"><span class="dot green"></span><span id="legend-green">An die Rampe</span></div>
     </div>
   </div>
 </header>
@@ -255,7 +266,7 @@ input{
       <div class="selectedInfo" id="selInfo">Bitte zuerst einen Container auswählen.</div>
 
       <div style="margin-top:10px;">
-        <label>Kennzeichen</label>
+        <label id="plateLabel">Kennzeichen</label>
         <input id="plate" placeholder="z.B. B-AB 1234" autocomplete="off" />
       </div>
 
@@ -263,7 +274,7 @@ input{
 
       <div id="msg" class="msg"></div>
 
-      <div class="small">
+      <div class="small" id="noteText">
         Hinweis: Container ohne Termin-Uhrzeit sind nicht auswählbar.
       </div>
     </div>
@@ -280,11 +291,79 @@ const plateEl = document.getElementById("plate");
 const msgEl = document.getElementById("msg");
 const btnEl = document.getElementById("sendBtn");
 const selInfoEl = document.getElementById("selInfo");
+let currentLang = localStorage.getItem("driverLang") || "de";
+
+const I18N = {
+  de: {
+    title: "Fahrer Anmeldung",
+    subtitle: "Nur Container mit Termin-Uhrzeit sind auswählbar.",
+    legendRed: "Frei",
+    legendOrange: "Angemeldet",
+    legendGreen: "An die Rampe",
+    statusRed: "Warten",
+    statusOrange: "Angemeldet",
+    statusGreen: "An die Rampe",
+    free: "frei",
+    occupied: "belegt",
+    noSlot: "kein Termin",
+    slotTime: "Termin-Uhrzeit",
+    status: "Status",
+    checkedIn: "Angemeldet",
+    selectFirst: "Bitte zuerst einen <b>Container</b> auswählen.",
+    selected: "Ausgewählt",
+    slot: "Termin",
+    plateLabel: "Kennzeichen",
+    platePlaceholder: "z.B. B-AB 1234",
+    registerBtn: "Anmelden",
+    note: "Hinweis: Container ohne Termin-Uhrzeit sind nicht auswählbar.",
+    msgNoTime: "Dieser Container hat noch keinen Termin. Bitte einen Container mit Uhrzeit wählen.",
+    msgOccupied: "Dieser Container ist bereits belegt. Bitte einen anderen wählen.",
+    msgUnavailable: "Dein ausgewählter Container ist nicht mehr verfügbar. Bitte neu auswählen.",
+    msgSelectFirst: "Bitte zuerst einen Container auswählen.",
+    msgNotSelectable: "Dieser Container ist nicht auswählbar. Bitte einen anderen wählen.",
+    msgEnterPlate: "Bitte Kennzeichen eingeben.",
+    toggle: "English"
+  },
+  en: {
+    title: "Driver Check-in",
+    subtitle: "Only containers with a scheduled time can be selected.",
+    legendRed: "Free",
+    legendOrange: "Checked in",
+    legendGreen: "Go to ramp",
+    statusRed: "Waiting",
+    statusOrange: "Checked in",
+    statusGreen: "Go to ramp",
+    free: "free",
+    occupied: "occupied",
+    noSlot: "no slot",
+    slotTime: "Scheduled time",
+    status: "Status",
+    checkedIn: "Checked in",
+    selectFirst: "Please select a <b>container</b> first.",
+    selected: "Selected",
+    slot: "Slot",
+    plateLabel: "License plate",
+    platePlaceholder: "e.g. B-AB 1234",
+    registerBtn: "Check in",
+    note: "Note: Containers without a scheduled time cannot be selected.",
+    msgNoTime: "This container has no scheduled time yet. Please choose one with a time.",
+    msgOccupied: "This container is already occupied. Please choose another one.",
+    msgUnavailable: "Your selected container is no longer available. Please select again.",
+    msgSelectFirst: "Please select a container first.",
+    msgNotSelectable: "This container cannot be selected. Please choose another one.",
+    msgEnterPlate: "Please enter a license plate.",
+    toggle: "Deutsch"
+  }
+};
+
+function t(key){
+  return I18N[currentLang]?.[key] || I18N.de[key] || key;
+}
 
 function statusText(status){
-  if (status === "green") return "An die Rampe";
-  if (status === "orange") return "Angemeldet";
-  return "Warten";
+  if (status === "green") return t("statusGreen");
+  if (status === "orange") return t("statusOrange");
+  return t("statusRed");
 }
 function hasTime(c){ return !!(c.time && c.time.trim()); }
 function timeText(c){ return hasTime(c) ? c.time.trim() : "--:--"; }
@@ -325,12 +404,12 @@ function focusPlateInput(){
 
 function updateSelectedInfo(){
   if (!state || !selectedId){
-    selInfoEl.innerHTML = "Bitte zuerst einen <b>Container</b> auswählen.";
+    selInfoEl.innerHTML = t("selectFirst");
     btnEl.disabled = true;
     return;
   }
   const c = state[selectedId];
-  selInfoEl.innerHTML = `Ausgewählt: <b>Container ${selectedId}</b> · Termin: <b>${timeText(c)}</b>`;
+  selInfoEl.innerHTML = `${t("selected")}: <b>Container ${selectedId}</b> · ${t("slot")}: <b>${timeText(c)}</b>`;
   btnEl.disabled = !isSelectableForDriver(c);
 }
 
@@ -345,9 +424,9 @@ function renderAll(){
     const reg = registeredTime(c.registeredAt);
 
     let headNote = "";
-    if (!hasTime(c)) headNote = "kein Termin";
-    else if (!isFree(c)) headNote = "belegt";
-    else headNote = "frei";
+    if (!hasTime(c)) headNote = t("noSlot");
+    else if (!isFree(c)) headNote = t("occupied");
+    else headNote = t("free");
 
     const slot = document.createElement("div");
     slot.className = "slot" + (disabled ? " disabled" : "") + (selectedId === i ? " selected" : "");
@@ -360,15 +439,15 @@ function renderAll(){
       </div>
       <div class="slotBody">
         <div class="timeBig">⏱ ${time}</div>
-        <div class="timeSmallHint">Termin-Uhrzeit</div>
+        <div class="timeSmallHint">${t("slotTime")}</div>
 
         <div class="statusRow">
-          <div>Status</div>
+          <div>${t("status")}</div>
           <div class="statusText">${statusText(c.status)}</div>
         </div>
 
         <div class="regRow">
-          <div>Angemeldet</div>
+          <div>${t("checkedIn")}</div>
           <div class="regValue">${reg}</div>
         </div>
 
@@ -381,8 +460,8 @@ function renderAll(){
       clearMsg();
 
       if (disabled){
-        if (!hasTime(c)) showMsg("Dieser Container hat noch keinen Termin. Bitte einen Container mit Uhrzeit wählen.");
-        else showMsg("Dieser Container ist bereits belegt. Bitte einen anderen wählen.");
+        if (!hasTime(c)) showMsg(t("msgNoTime"));
+        else showMsg(t("msgOccupied"));
         return;
       }
 
@@ -401,15 +480,29 @@ function applyOne(id, data){
 
   if (selectedId === id && !isSelectableForDriver(data)){
     selectedId = null;
-    showMsg("Dein ausgewählter Container ist nicht mehr verfügbar. Bitte neu auswählen.");
+    showMsg(t("msgUnavailable"));
   }
 
   renderAll();
   updateSelectedInfo();
 }
 
+function applyStaticTranslations(){
+  document.getElementById("title").textContent = t("title");
+  document.getElementById("subtitle").textContent = t("subtitle");
+  document.getElementById("legend-red").textContent = t("legendRed");
+  document.getElementById("legend-orange").textContent = t("legendOrange");
+  document.getElementById("legend-green").textContent = t("legendGreen");
+  document.getElementById("plateLabel").textContent = t("plateLabel");
+  plateEl.placeholder = t("platePlaceholder");
+  btnEl.textContent = t("registerBtn");
+  document.getElementById("noteText").textContent = t("note");
+  document.getElementById("langToggle").textContent = t("toggle");
+}
+
 socket.on("init", (s) => {
   state = s;
+  applyStaticTranslations();
   renderAll();
   updateSelectedInfo();
 });
@@ -419,29 +512,41 @@ socket.on("statusChanged", ({ id, data }) => {
   applyOne(Number(id), data);
 });
 
+document.getElementById("langToggle").addEventListener("click", () => {
+  currentLang = currentLang === "de" ? "en" : "de";
+  localStorage.setItem("driverLang", currentLang);
+  applyStaticTranslations();
+  if (state) {
+    renderAll();
+    updateSelectedInfo();
+  }
+});
+
 btnEl.addEventListener("click", () => {
   clearMsg();
 
   if (!state || !selectedId){
-    showMsg("Bitte zuerst einen Container auswählen.");
+    showMsg(t("msgSelectFirst"));
     return;
   }
 
   const c = state[selectedId];
   if (!isSelectableForDriver(c)){
-    showMsg("Dieser Container ist nicht auswählbar. Bitte einen anderen wählen.");
+    showMsg(t("msgNotSelectable"));
     return;
   }
 
   const plate = plateEl.value.trim();
   if (!plate){
-    showMsg("Bitte Kennzeichen eingeben.");
+    showMsg(t("msgEnterPlate"));
     return;
   }
 
   btnEl.disabled = true;
   socket.emit("driverRegister", { id: selectedId, plate });
 });
+
+applyStaticTranslations();
 
 socket.on("driverRegisterResult", ({ ok, message }) => {
   btnEl.disabled = false;

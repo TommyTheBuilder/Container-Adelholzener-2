@@ -21,6 +21,11 @@ Danach **mindestens** die Zugangsdaten korrekt setzen:
 - `DATABASE_URL` **oder**
 - `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
 
+Vorgabe für deinen Server:
+- DB: `containeranmeldung`
+- User: `containera`
+- Passwort: `containera`
+
 > Wenn im Log `auth_failed` erscheint, sind Benutzer/Passwort oder Host nicht korrekt.
 
 ## 3) Starten

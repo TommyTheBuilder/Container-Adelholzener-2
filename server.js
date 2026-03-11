@@ -13,6 +13,18 @@ const ADMIN_KEY = process.env.ADMIN_KEY || "333";
 const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
 
+const rawDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
+const hasDatabaseUrl = rawDatabaseUrl.length > 0;
+const hasPgEnvOverride = ["PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD"].some((key) =>
+  Object.prototype.hasOwnProperty.call(process.env, key)
+);
+
+const dbSsl = process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined;
+
+const DB_CONFIG = hasDatabaseUrl && !hasPgEnvOverride
+  ? {
+      connectionString: rawDatabaseUrl,
+      ssl: dbSsl
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
 const DB_CONFIG = hasDatabaseUrl
   ? {
@@ -23,6 +35,9 @@ const DB_CONFIG = hasDatabaseUrl
       host: process.env.PGHOST || "127.0.0.1",
       port: Number(process.env.PGPORT || 5432),
       database: process.env.PGDATABASE || "containeranmeldung",
+      user: String(process.env.PGUSER || "containera"),
+      password: String(process.env.PGPASSWORD || "containera"),
+      ssl: dbSsl
       user: process.env.PGUSER || "postgres",
       password: process.env.PGPASSWORD || "",
       ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined

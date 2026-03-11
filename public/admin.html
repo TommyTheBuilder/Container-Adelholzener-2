@@ -255,7 +255,7 @@ select{
   <div class="wrap top">
     <div>
       <h1>Admin Steuerung</h1>
-      <div class="sub">Orange = Fahrer angemeldet (inkl. Uhrzeit) · Historie ohne Details/Termin-Logs</div>
+      <div class="sub">Orange = Fahrer angemeldet (inkl. Uhrzeit) · Historie zeigt abgeschlossene Buchungen mit Detailverlauf</div>
     </div>
 
     <div class="topActions">
@@ -304,6 +304,7 @@ select{
               <th>Status</th>
               <th>Container</th>
               <th>Kennzeichen</th>
+              <th>Buchung</th>
             </tr>
           </thead>
           <tbody id="histBody"></tbody>
@@ -455,13 +456,22 @@ function applyOne(id, data){
 
 }
 
-// ===== Historie UI (ohne Details, mit Mapping, admin_set_time ausgeblendet) =====
+// ===== Historie UI (abgeschlossene Buchungen + Detailverlauf) =====
 const TYPE_LABELS = {
-  "admin_reset_container": "Abgeschlossen",
-  "admin_set_status": "Rampe Frei",
-  "driver_register": "Registriert"
-  // andere Typen werden automatisch ausgeblendet (außer du willst sie später)
+  "admin_reset_container": "Abgeschlossen"
 };
+const TIMELINE_LABELS = {
+  "driver_register": "Kennzeichen registriert",
+  "admin_set_status": "Status geändert",
+  "admin_set_time": "Termin geändert",
+  "admin_reset_container": "Buchung abgeschlossen"
+};
+const bookingTimelineCache = new Map();
+
+function bookingNoOf(entry){
+  const n = Number(entry?.details?.bookingNo);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
 
 function fmtDateTime(iso){
   if (!iso) return "";
@@ -473,31 +483,52 @@ function fmtDateTime(iso){
   });
 }
 
+function renderTimeline(entries){
+  if (!entries || entries.length === 0) return '<div class="muted">Keine Einzelbuchungen gefunden.</div>';
+  const lines = entries.map((e) => {
+    const label = TIMELINE_LABELS[e.type] || e.type;
+    const detail = [];
+    if (e.details?.from || e.details?.to) detail.push(`${e.details.from || "?"} → ${e.details.to || "?"}`);
+    if (e.details?.timeSlot) detail.push(`Termin: ${e.details.timeSlot}`);
+    return `<li><b>${fmtDateTime(e.at)}</b> · ${label}${detail.length ? ` <span class="muted">(${detail.join(" · ")})</span>` : ""}</li>`;
+  }).join("");
+
+  return `<ul style="margin:6px 0 0 18px; padding:0;">${lines}</ul>`;
+}
+
 function renderHistory(entries){
   const body = document.getElementById("histBody");
   body.innerHTML = "";
 
-  // Nur die drei gewünschten Typen anzeigen
   const filtered = (entries || []).filter(e => {
     if (!e || !e.type) return false;
-    if (e.type === "admin_set_time") return false; // explizit raus
     return !!TYPE_LABELS[e.type];
   });
 
   for (const e of filtered){
+    const bookingNo = bookingNoOf(e);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${fmtDateTime(e.at)}</td>
       <td>${TYPE_LABELS[e.type] || e.type}</td>
       <td>${e.containerId || ""}</td>
       <td>${e.plate || ""}</td>
+      <td>${bookingNo ? `<button class="smallBtn" data-open-booking="${bookingNo}">#${bookingNo} öffnen</button>` : '<span class="muted">-</span>'}</td>
     `;
     body.appendChild(tr);
+
+    if (bookingNo){
+      const detailTr = document.createElement("tr");
+      detailTr.id = `booking-row-${bookingNo}`;
+      detailTr.style.display = "none";
+      detailTr.innerHTML = `<td colspan="5" class="muted" id="booking-detail-${bookingNo}">Lade Verlauf...</td>`;
+      body.appendChild(detailTr);
+    }
   }
 
   if (filtered.length === 0){
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="4" class="muted">Keine passenden Einträge vorhanden.</td>`;
+    tr.innerHTML = `<td colspan="5" class="muted">Keine passenden Einträge vorhanden.</td>`;
     body.appendChild(tr);
   }
 }
@@ -508,7 +539,42 @@ function refreshHistory(){
 }
 
 socket.on("adminHistory", ({ entries }) => {
+  bookingTimelineCache.clear();
   renderHistory(entries || []);
+});
+
+socket.on("adminBookingTimeline", ({ bookingNo, entries }) => {
+  const no = Number(bookingNo);
+  if (!Number.isInteger(no) || no <= 0) return;
+  bookingTimelineCache.set(no, entries || []);
+
+  const detailCell = document.getElementById(`booking-detail-${no}`);
+  if (detailCell) detailCell.innerHTML = renderTimeline(entries || []);
+});
+
+document.getElementById("histBody").addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-open-booking]");
+  if (!btn) return;
+
+  const bookingNo = Number(btn.getAttribute("data-open-booking"));
+  if (!Number.isInteger(bookingNo) || bookingNo <= 0) return;
+
+  const detailRow = document.getElementById(`booking-row-${bookingNo}`);
+  const detailCell = document.getElementById(`booking-detail-${bookingNo}`);
+  if (!detailRow || !detailCell) return;
+
+  const willOpen = detailRow.style.display === "none";
+  detailRow.style.display = willOpen ? "table-row" : "none";
+  btn.textContent = willOpen ? `#${bookingNo} schließen` : `#${bookingNo} öffnen`;
+
+  if (!willOpen) return;
+  if (bookingTimelineCache.has(bookingNo)) {
+    detailCell.innerHTML = renderTimeline(bookingTimelineCache.get(bookingNo));
+    return;
+  }
+
+  detailCell.textContent = "Lade Verlauf...";
+  socket.emit("adminGetBookingTimeline", { bookingNo });
 });
 
 // ===== Auth + Init =====

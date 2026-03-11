@@ -25,11 +25,6 @@ const DB_CONFIG = hasDatabaseUrl && !hasPgEnvOverride
   ? {
       connectionString: rawDatabaseUrl,
       ssl: dbSsl
-const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-const DB_CONFIG = hasDatabaseUrl
-  ? {
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined
     }
   : {
       host: process.env.PGHOST || "127.0.0.1",
@@ -38,9 +33,6 @@ const DB_CONFIG = hasDatabaseUrl
       user: String(process.env.PGUSER || "containera"),
       password: String(process.env.PGPASSWORD || "containera"),
       ssl: dbSsl
-      user: process.env.PGUSER || "postgres",
-      password: process.env.PGPASSWORD || "",
-      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined
     };
 // ====================
 
@@ -66,7 +58,8 @@ function defaultContainer(id) {
     status: "red",
     plate: "",
     time: "",
-    registeredAt: ""
+    registeredAt: "",
+    bookingNo: null
   };
 }
 
@@ -75,7 +68,8 @@ function normalizeContainer(row) {
     status: STATUSES.includes(row.status) ? row.status : "red",
     plate: typeof row.plate === "string" ? row.plate : "",
     time: typeof row.time === "string" ? row.time : "",
-    registeredAt: row.registered_at ? new Date(row.registered_at).toISOString() : ""
+    registeredAt: row.registered_at ? new Date(row.registered_at).toISOString() : "",
+    bookingNo: Number.isInteger(row.booking_no) ? row.booking_no : null
   };
 }
 
@@ -86,8 +80,14 @@ async function initDb() {
       status TEXT NOT NULL DEFAULT 'red',
       plate TEXT NOT NULL DEFAULT '',
       time TEXT NOT NULL DEFAULT '',
-      registered_at TIMESTAMPTZ
+      registered_at TIMESTAMPTZ,
+      booking_no BIGINT
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE containers
+    ADD COLUMN IF NOT EXISTS booking_no BIGINT
   `);
 
   await pool.query(`
@@ -100,6 +100,20 @@ async function initDb() {
       details JSONB NOT NULL DEFAULT '{}'::jsonb
     )
   `);
+
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS booking_counter (
+      id INTEGER PRIMARY KEY,
+      value BIGINT NOT NULL
+    )
+  `);
+
+  await pool.query(
+    `INSERT INTO booking_counter (id, value)
+     VALUES (1, 0)
+     ON CONFLICT (id) DO NOTHING`
+  );
 
   for (let i = 1; i <= 8; i++) {
     const c = defaultContainer(i);
@@ -114,7 +128,7 @@ async function initDb() {
 
 async function loadState() {
   const result = await pool.query(
-    "SELECT id, status, plate, time, registered_at FROM containers ORDER BY id"
+    "SELECT id, status, plate, time, registered_at, booking_no FROM containers ORDER BY id"
   );
 
   const state = {};
@@ -135,9 +149,10 @@ async function saveContainer(id, data) {
      SET status = $2,
          plate = $3,
          time = $4,
-         registered_at = $5
+         registered_at = $5,
+         booking_no = $6
      WHERE id = $1`,
-    [id, data.status, data.plate, data.time, data.registeredAt || null]
+    [id, data.status, data.plate, data.time, data.registeredAt || null, data.bookingNo || null]
   );
 }
 
@@ -152,9 +167,10 @@ async function saveAllContainers(state) {
          SET status = $2,
              plate = $3,
              time = $4,
-             registered_at = $5
+             registered_at = $5,
+             booking_no = $6
          WHERE id = $1`,
-        [i, data.status, data.plate, data.time, data.registeredAt || null]
+        [i, data.status, data.plate, data.time, data.registeredAt || null, data.bookingNo || null]
       );
     }
     await client.query("COMMIT");
@@ -198,6 +214,40 @@ async function getHistory(limit) {
 
 async function clearHistory() {
   await pool.query("TRUNCATE TABLE history RESTART IDENTITY");
+}
+
+async function nextBookingNo() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const updated = await client.query(
+      `UPDATE booking_counter
+       SET value = value + 1
+       WHERE id = 1
+       RETURNING value`
+    );
+    await client.query("COMMIT");
+    return Number(updated.rows[0]?.value || 1);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function getBookingTimeline(bookingNo) {
+  const n = Number(bookingNo);
+  if (!Number.isInteger(n) || n <= 0) return [];
+
+  const result = await pool.query(
+    `SELECT at, type, container_id AS "containerId", plate, details
+     FROM history
+     WHERE details->>'bookingNo' = $1
+     ORDER BY id ASC`,
+    [String(n)]
+  );
+  return result.rows;
 }
 
 function historyToCSV(entries) {
@@ -260,6 +310,16 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("adminGetBookingTimeline", async ({ bookingNo }) => {
+    if (!socket.data.isAdmin) return;
+    try {
+      const entries = await getBookingTimeline(bookingNo);
+      socket.emit("adminBookingTimeline", { bookingNo, entries });
+    } catch (error) {
+      socket.emit("adminBookingTimeline", { bookingNo, entries: [], error: error.message });
+    }
+  });
+
   socket.on("adminClearHistory", async () => {
     if (!socket.data.isAdmin) return;
     await clearHistory();
@@ -289,9 +349,11 @@ io.on("connection", (socket) => {
     }
 
     const nowIso = new Date().toISOString();
+    const bookingNo = await nextBookingNo();
     containers[cid].plate = safePlate;
     containers[cid].status = "orange";
     containers[cid].registeredAt = nowIso;
+    containers[cid].bookingNo = bookingNo;
 
     await saveContainer(cid, containers[cid]);
     emitOne(cid);
@@ -301,7 +363,7 @@ io.on("connection", (socket) => {
       at: nowIso,
       containerId: cid,
       plate: safePlate,
-      details: { timeSlot: containers[cid].time || "" }
+      details: { bookingNo, timeSlot: containers[cid].time || "", startedAt: nowIso }
     });
 
     socket.emit("driverRegisterResult", { ok: true, message: "Erfolgreich angemeldet. Bitte warten." });
@@ -324,7 +386,7 @@ io.on("connection", (socket) => {
       at: new Date().toISOString(),
       containerId: cid,
       plate: containers[cid].plate || "",
-      details: { from: before, to: status }
+      details: { bookingNo: containers[cid].bookingNo || null, from: before, to: status }
     });
   });
 
@@ -347,7 +409,7 @@ io.on("connection", (socket) => {
       at: new Date().toISOString(),
       containerId: cid,
       plate: containers[cid].plate || "",
-      details: { from: before, to: safeTime }
+      details: { bookingNo: containers[cid].bookingNo || null, from: before, to: safeTime }
     });
   });
 
@@ -358,6 +420,7 @@ io.on("connection", (socket) => {
     if (!containers[cid]) return;
 
     const before = { ...containers[cid] };
+    const finishedAt = new Date().toISOString();
     containers[cid] = defaultContainer(cid);
 
     await saveContainer(cid, containers[cid]);
@@ -368,7 +431,7 @@ io.on("connection", (socket) => {
       at: new Date().toISOString(),
       containerId: cid,
       plate: before.plate || "",
-      details: { before }
+      details: { bookingNo: before.bookingNo || null, completedAt: finishedAt, before }
     });
   });
 

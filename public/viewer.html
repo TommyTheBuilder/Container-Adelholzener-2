@@ -310,7 +310,7 @@ function renderAll(state){
         <div class="name">Container ${i}</div>
         <div class="pills">
           <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
-          <div class="pill" id="time-${i}">${t("scheduleShort")} ${time}</div>
+          <div class="pill" id="time-${i}">⏱ Termin ${time}</div>
         </div>
       </div>
       <div class="statusArea">
@@ -336,10 +336,7 @@ function applyOne(id, data){
   const reg = registeredTime(data.registeredAt);
 
   document.getElementById("pill-"+id).textContent = statusText(data.status);
-  document.getElementById("time-"+id).textContent = t("scheduleShort") + " " + time;
-  document.getElementById("reg-"+id).textContent = reg;
-
-
+  document.getElementById("time-"+id).textContent = "⏱ Termin " + time;
   document.getElementById("plate-"+id).textContent = plateText(data.plate);
   document.getElementById("metaStatus-"+id).textContent = statusText(data.status);
   document.getElementById("metaTime-"+id).textContent = t("scheduleLabel") + ": " + time;

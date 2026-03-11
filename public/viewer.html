@@ -280,7 +280,6 @@ function renderAll(state){
         <div class="pills">
           <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
           <div class="pill" id="time-${i}">⏱ Termin ${time}</div>
-          <div class="pill" id="regPill-${i}">🕒 Angemeldet ${reg}</div>
         </div>
       </div>
       <div class="statusArea">
@@ -306,7 +305,6 @@ function applyOne(id, data){
 
   document.getElementById("pill-"+id).textContent = statusText(data.status);
   document.getElementById("time-"+id).textContent = "⏱ Termin " + time;
-  document.getElementById("regPill-"+id).textContent = "🕒 Angemeldet " + reg;
   document.getElementById("reg-"+id).textContent = reg;
 
   const regBox = document.getElementById("regBox-"+id);

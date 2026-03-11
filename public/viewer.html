@@ -20,13 +20,18 @@
   --radius: 18px;
 }
 *{box-sizing:border-box}
+html, body { min-height: 100%; }
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
   color:var(--white);
+  min-height: 100vh;
   background: radial-gradient(1200px 600px at 20% 0%, rgba(59,130,246,.12), transparent 55%),
               radial-gradient(900px 600px at 80% 20%, rgba(34,197,94,.10), transparent 55%),
               var(--bg);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
 }
 header{
   position: sticky;

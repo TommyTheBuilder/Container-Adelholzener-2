@@ -1,101 +1,176 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const fs = require("fs");
-const path = require("path");
+const { Pool } = require("pg");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 // ====== CONFIG ======
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3004);
 const ADMIN_KEY = process.env.ADMIN_KEY || "333";
-const DATA_FILE = path.join(__dirname, "data.json");
-const HISTORY_FILE = path.join(__dirname, "history.json");
-const HISTORY_MAX = 5000; // max Einträge, dann werden die ältesten entfernt
+const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
+const DB_URL = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/containeranmeldung";
+const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
 // ====================
+
+const pool = new Pool({ connectionString: DB_URL });
 
 app.use(express.static("public"));
 
-// Komfort: Root öffnet Viewer
 app.get("/", (req, res) => res.redirect("/viewer.html"));
+app.get("/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ ok: true, service: "container-status-board", baseUrl: BASE_URL });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
 
 const STATUSES = ["red", "orange", "green"]; // rot=warten, orange=angemeldet, grün=rampe
 
-function defaultState() {
-  const obj = {};
+function defaultContainer(id) {
+  return {
+    id,
+    status: "red",
+    plate: "",
+    time: "",
+    registeredAt: ""
+  };
+}
+
+function normalizeContainer(row) {
+  return {
+    status: STATUSES.includes(row.status) ? row.status : "red",
+    plate: typeof row.plate === "string" ? row.plate : "",
+    time: typeof row.time === "string" ? row.time : "",
+    registeredAt: row.registered_at ? new Date(row.registered_at).toISOString() : ""
+  };
+}
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS containers (
+      id INTEGER PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'red',
+      plate TEXT NOT NULL DEFAULT '',
+      time TEXT NOT NULL DEFAULT '',
+      registered_at TIMESTAMPTZ
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS history (
+      id BIGSERIAL PRIMARY KEY,
+      at TIMESTAMPTZ NOT NULL,
+      type TEXT NOT NULL,
+      container_id INTEGER NOT NULL,
+      plate TEXT NOT NULL DEFAULT '',
+      details JSONB NOT NULL DEFAULT '{}'::jsonb
+    )
+  `);
+
   for (let i = 1; i <= 8; i++) {
-    obj[i] = {
-      status: "red",
-      plate: "",
-      time: "",          // "HH:MM"
-      registeredAt: ""   // ISO string
-    };
+    const c = defaultContainer(i);
+    await pool.query(
+      `INSERT INTO containers (id, status, plate, time, registered_at)
+       VALUES ($1, $2, $3, $4, NULL)
+       ON CONFLICT (id) DO NOTHING`,
+      [c.id, c.status, c.plate, c.time]
+    );
   }
-  return obj;
 }
 
-function loadState() {
-  try {
-    if (!fs.existsSync(DATA_FILE)) return defaultState();
-    const raw = fs.readFileSync(DATA_FILE, "utf8");
-    const data = JSON.parse(raw);
+async function loadState() {
+  const result = await pool.query(
+    "SELECT id, status, plate, time, registered_at FROM containers ORDER BY id"
+  );
 
+  const state = {};
+  for (let i = 1; i <= 8; i++) {
+    state[i] = defaultContainer(i);
+  }
+
+  for (const row of result.rows) {
+    state[row.id] = normalizeContainer(row);
+  }
+
+  return state;
+}
+
+async function saveContainer(id, data) {
+  await pool.query(
+    `UPDATE containers
+     SET status = $2,
+         plate = $3,
+         time = $4,
+         registered_at = $5
+     WHERE id = $1`,
+    [id, data.status, data.plate, data.time, data.registeredAt || null]
+  );
+}
+
+async function saveAllContainers(state) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
     for (let i = 1; i <= 8; i++) {
-      if (!data[i]) data[i] = defaultState()[i];
-      if (!STATUSES.includes(data[i].status)) data[i].status = "red";
-      if (typeof data[i].plate !== "string") data[i].plate = "";
-      if (typeof data[i].time !== "string") data[i].time = "";
-      if (typeof data[i].registeredAt !== "string") data[i].registeredAt = "";
+      const data = state[i] || defaultContainer(i);
+      await client.query(
+        `UPDATE containers
+         SET status = $2,
+             plate = $3,
+             time = $4,
+             registered_at = $5
+         WHERE id = $1`,
+        [i, data.status, data.plate, data.time, data.registeredAt || null]
+      );
     }
-    return data;
-  } catch {
-    return defaultState();
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
 }
 
-function saveState(state) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), "utf8");
-  } catch (e) {
-    console.error("Konnte data.json nicht speichern:", e.message);
-  }
+async function logEvent(evt) {
+  await pool.query(
+    `INSERT INTO history (at, type, container_id, plate, details)
+     VALUES ($1, $2, $3, $4, $5::jsonb)`,
+    [evt.at, evt.type, evt.containerId, evt.plate || "", JSON.stringify(evt.details || {})]
+  );
+
+  await pool.query(
+    `DELETE FROM history
+     WHERE id IN (
+       SELECT id FROM history
+       ORDER BY id DESC
+       OFFSET $1
+     )`,
+    [HISTORY_MAX]
+  );
 }
 
-// ===== Historie =====
-function loadHistory() {
-  try {
-    if (!fs.existsSync(HISTORY_FILE)) return [];
-    const raw = fs.readFileSync(HISTORY_FILE, "utf8");
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+async function getHistory(limit) {
+  const n = Math.max(1, Math.min(Number(limit || 200), 2000));
+  const result = await pool.query(
+    `SELECT at, type, container_id AS "containerId", plate, details
+     FROM history
+     ORDER BY id DESC
+     LIMIT $1`,
+    [n]
+  );
+  return result.rows;
 }
 
-let history = loadHistory();
-
-function saveHistory() {
-  try {
-    // begrenzen
-    if (history.length > HISTORY_MAX) {
-      history = history.slice(history.length - HISTORY_MAX);
-    }
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf8");
-  } catch (e) {
-    console.error("Konnte history.json nicht speichern:", e.message);
-  }
+async function clearHistory() {
+  await pool.query("TRUNCATE TABLE history RESTART IDENTITY");
 }
 
-function logEvent(evt) {
-  // evt: {type, at, containerId, plate?, details?}
-  history.push(evt);
-  saveHistory();
-}
-
-// CSV export helper (für Admin)
 function historyToCSV(entries) {
   const header = ["at", "type", "containerId", "plate", "details"];
   const lines = [header.join(";")];
@@ -113,29 +188,30 @@ function historyToCSV(entries) {
   return lines.join("\n");
 }
 
-// Optional: Admin kann CSV über URL holen (nur mit key)
-app.get("/admin-history.csv", (req, res) => {
-  const key = String(req.query.key || "");
-  if (key !== ADMIN_KEY) return res.status(403).send("Forbidden");
-  const last = history.slice(-1000); // letzte 1000 Einträge
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", "attachment; filename=history.csv");
-  res.send(historyToCSV(last));
-});
-// ====================
-
-let containers = loadState();
+let containers = {};
 
 function emitOne(id) {
   io.emit("statusChanged", { id, data: containers[id] });
 }
 
+app.get("/admin-history.csv", async (req, res) => {
+  try {
+    const key = String(req.query.key || "");
+    if (key !== ADMIN_KEY) return res.status(403).send("Forbidden");
+
+    const entries = await getHistory(1000);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=history.csv");
+    return res.send(historyToCSV(entries.reverse()));
+  } catch (error) {
+    return res.status(500).send(error.message);
+  }
+});
+
 io.on("connection", (socket) => {
   socket.data.isAdmin = false;
-
   socket.emit("init", containers);
 
-  // ===== Admin Auth =====
   socket.on("adminAuth", ({ key }) => {
     if (key && key === ADMIN_KEY) {
       socket.data.isAdmin = true;
@@ -145,25 +221,23 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ===== Admin: Historie holen =====
-  socket.on("adminGetHistory", ({ limit }) => {
+  socket.on("adminGetHistory", async ({ limit }) => {
     if (!socket.data.isAdmin) return;
-    const n = Math.max(1, Math.min(Number(limit || 200), 2000));
-    socket.emit("adminHistory", { entries: history.slice(-n).reverse() }); // neueste zuerst
+    try {
+      const entries = await getHistory(limit);
+      socket.emit("adminHistory", { entries });
+    } catch (error) {
+      socket.emit("adminHistory", { entries: [], error: error.message });
+    }
   });
 
-  // (Optional) Admin: Historie löschen
-  socket.on("adminClearHistory", () => {
+  socket.on("adminClearHistory", async () => {
     if (!socket.data.isAdmin) return;
-    history = [];
-    saveHistory();
+    await clearHistory();
     socket.emit("adminHistory", { entries: [] });
   });
 
-  // ===== Fahrer: Registrierung =====
-  // Regel: Fahrer darf NICHT überschreiben, wenn Slot nicht frei ist.
-  // "frei" = status == red UND plate leer
-  socket.on("driverRegister", ({ id, plate }) => {
+  socket.on("driverRegister", async ({ id, plate }) => {
     const cid = Number(id);
     if (!containers[cid]) {
       socket.emit("driverRegisterResult", { ok: false, message: "Ungültiger Container." });
@@ -186,16 +260,14 @@ io.on("connection", (socket) => {
     }
 
     const nowIso = new Date().toISOString();
-
     containers[cid].plate = safePlate;
-    containers[cid].status = "orange"; // Angemeldet
+    containers[cid].status = "orange";
     containers[cid].registeredAt = nowIso;
 
-    saveState(containers);
+    await saveContainer(cid, containers[cid]);
     emitOne(cid);
 
-    // ✅ HISTORIE: Fahrer Anmeldung
-    logEvent({
+    await logEvent({
       type: "driver_register",
       at: nowIso,
       containerId: cid,
@@ -206,21 +278,19 @@ io.on("connection", (socket) => {
     socket.emit("driverRegisterResult", { ok: true, message: "Erfolgreich angemeldet. Bitte warten." });
   });
 
-  // ===== Admin: Status setzen (nur rot/grün) =====
-  socket.on("adminSetStatus", ({ id, status }) => {
+  socket.on("adminSetStatus", async ({ id, status }) => {
     if (!socket.data.isAdmin) return;
 
     const cid = Number(id);
     if (!containers[cid]) return;
-
     if (status !== "red" && status !== "green") return;
 
     const before = containers[cid].status;
     containers[cid].status = status;
-    saveState(containers);
+    await saveContainer(cid, containers[cid]);
     emitOne(cid);
 
-    logEvent({
+    await logEvent({
       type: "admin_set_status",
       at: new Date().toISOString(),
       containerId: cid,
@@ -229,8 +299,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ===== Admin: Termin setzen =====
-  socket.on("adminSetTime", ({ id, time }) => {
+  socket.on("adminSetTime", async ({ id, time }) => {
     if (!socket.data.isAdmin) return;
 
     const cid = Number(id);
@@ -241,10 +310,10 @@ io.on("connection", (socket) => {
 
     const before = containers[cid].time;
     containers[cid].time = safeTime;
-    saveState(containers);
+    await saveContainer(cid, containers[cid]);
     emitOne(cid);
 
-    logEvent({
+    await logEvent({
       type: "admin_set_time",
       at: new Date().toISOString(),
       containerId: cid,
@@ -253,20 +322,19 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ===== Admin: Container zurücksetzen =====
-  socket.on("adminResetContainer", ({ id }) => {
+  socket.on("adminResetContainer", async ({ id }) => {
     if (!socket.data.isAdmin) return;
 
     const cid = Number(id);
     if (!containers[cid]) return;
 
     const before = { ...containers[cid] };
+    containers[cid] = defaultContainer(cid);
 
-    containers[cid] = defaultState()[cid];
-    saveState(containers);
+    await saveContainer(cid, containers[cid]);
     emitOne(cid);
 
-    logEvent({
+    await logEvent({
       type: "admin_reset_container",
       at: new Date().toISOString(),
       containerId: cid,
@@ -275,15 +343,16 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ===== Admin: Alles zurücksetzen =====
-  socket.on("resetAll", () => {
+  socket.on("resetAll", async () => {
     if (!socket.data.isAdmin) return;
 
-    containers = defaultState();
-    saveState(containers);
+    containers = {};
+    for (let i = 1; i <= 8; i++) containers[i] = defaultContainer(i);
+
+    await saveAllContainers(containers);
     io.emit("init", containers);
 
-    logEvent({
+    await logEvent({
       type: "admin_reset_all",
       at: new Date().toISOString(),
       containerId: 0,
@@ -293,8 +362,18 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server läuft auf Port ${PORT}`);
-  console.log(`ADMIN_KEY ist gesetzt? ${ADMIN_KEY !== "CHANGE_ME"}`);
-});
+async function bootstrap() {
+  await initDb();
+  containers = await loadState();
 
+  server.listen(PORT, () => {
+    console.log(`Server läuft auf Port ${PORT}`);
+    console.log(`Basis-URL: ${BASE_URL}`);
+    console.log(`PostgreSQL verbunden: ${DB_URL.replace(/:[^:@/]+@/, ":***@")}`);
+  });
+}
+
+bootstrap().catch((error) => {
+  console.error("Fehler beim Start:", error);
+  process.exit(1);
+});

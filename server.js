@@ -11,11 +11,25 @@ const io = new Server(server);
 const PORT = Number(process.env.PORT || 3004);
 const ADMIN_KEY = process.env.ADMIN_KEY || "333";
 const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
-const DB_URL = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/containeranmeldung";
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
+
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+const DB_CONFIG = hasDatabaseUrl
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined
+    }
+  : {
+      host: process.env.PGHOST || "127.0.0.1",
+      port: Number(process.env.PGPORT || 5432),
+      database: process.env.PGDATABASE || "containeranmeldung",
+      user: process.env.PGUSER || "postgres",
+      password: process.env.PGPASSWORD || "",
+      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined
+    };
 // ====================
 
-const pool = new Pool({ connectionString: DB_URL });
+const pool = new Pool(DB_CONFIG);
 
 app.use(express.static("public"));
 
@@ -369,11 +383,17 @@ async function bootstrap() {
   server.listen(PORT, () => {
     console.log(`Server läuft auf Port ${PORT}`);
     console.log(`Basis-URL: ${BASE_URL}`);
-    console.log(`PostgreSQL verbunden: ${DB_URL.replace(/:[^:@/]+@/, ":***@")}`);
+    if (hasDatabaseUrl) {
+      console.log("PostgreSQL verbunden via DATABASE_URL");
+    } else {
+      console.log(`PostgreSQL verbunden: ${DB_CONFIG.user}@${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database}`);
+    }
   });
 }
 
 bootstrap().catch((error) => {
-  console.error("Fehler beim Start:", error);
+  console.error("Fehler beim Start: PostgreSQL-Verbindung fehlgeschlagen.");
+  console.error("Prüfe DATABASE_URL oder PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD.");
+  console.error(error);
   process.exit(1);
 });

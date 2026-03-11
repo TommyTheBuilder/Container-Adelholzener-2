@@ -17,7 +17,11 @@ CREATE DATABASE containeranmeldung;
 cp .env.example .env
 ```
 
-Passe danach `DATABASE_URL` (Passwort/Host) und `ADMIN_KEY` an.
+Danach **mindestens** die Zugangsdaten korrekt setzen:
+- `DATABASE_URL` **oder**
+- `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+
+> Wenn im Log `auth_failed` erscheint, sind Benutzer/Passwort oder Host nicht korrekt.
 
 ## 3) Starten
 ```bash

@@ -138,13 +138,16 @@ label{
   width:100%;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(245,158,11,.45);
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-weight: 900;
+}
+.regBox.is-active{
+  border-color: rgba(245,158,11,.45);
   background: rgba(245,158,11,.14);
   color: var(--white);
-  font-weight: 900;
-  display:none;
 }
-.card.is-orange .regBox{ display:block; }
 
 input[type="time"]{
   width:100%;
@@ -367,7 +370,7 @@ function renderAll(){
       </div>
 
       <div class="controls">
-        <div class="regBox">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
+        <div class="regBox ${c.status === "orange" ? "is-active" : ""}" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
 
         <div>
           <label>Kennzeichen (vom Fahrer)</label>
@@ -436,6 +439,9 @@ function applyOne(id, data){
 
   const reg = document.getElementById("reg-"+id);
   if (reg) reg.textContent = registeredTime(data.registeredAt);
+
+  const regBox = document.getElementById("regBox-"+id);
+  if (regBox) regBox.classList.toggle("is-active", data.status === "orange");
 
   const t = document.getElementById("time-"+id);
   if (t && document.activeElement !== t) t.value = data.time || "";

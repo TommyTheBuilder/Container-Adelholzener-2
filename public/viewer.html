@@ -109,6 +109,7 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
   color: var(--muted);
 }
 
+
 .statusArea{
   padding: 16px 14px 16px;
   display:flex;
@@ -264,7 +265,6 @@ function renderAll(state){
         <div class="pills">
           <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
           <div class="pill" id="time-${i}">⏱ Termin ${time}</div>
-          <div class="pill" id="reg-${i}">🕒 Angemeldet ${reg}</div>
         </div>
       </div>
       <div class="statusArea">
@@ -289,8 +289,6 @@ function applyOne(id, data){
 
   document.getElementById("pill-"+id).textContent = statusText(data.status);
   document.getElementById("time-"+id).textContent = "⏱ Termin " + time;
-  document.getElementById("reg-"+id).textContent = "🕒 Angemeldet " + reg;
-
   document.getElementById("plate-"+id).textContent = plateText(data.plate);
   document.getElementById("metaStatus-"+id).textContent = statusText(data.status);
   document.getElementById("metaTime-"+id).textContent = "Termin: " + time;

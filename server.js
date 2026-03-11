@@ -25,11 +25,6 @@ const DB_CONFIG = hasDatabaseUrl && !hasPgEnvOverride
   ? {
       connectionString: rawDatabaseUrl,
       ssl: dbSsl
-const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-const DB_CONFIG = hasDatabaseUrl
-  ? {
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined
     }
   : {
       host: process.env.PGHOST || "127.0.0.1",
@@ -38,9 +33,6 @@ const DB_CONFIG = hasDatabaseUrl
       user: String(process.env.PGUSER || "containera"),
       password: String(process.env.PGPASSWORD || "containera"),
       ssl: dbSsl
-      user: process.env.PGUSER || "postgres",
-      password: process.env.PGPASSWORD || "",
-      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined
     };
 // ====================
 

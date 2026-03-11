@@ -59,6 +59,16 @@ h1{ margin:0; font-size: 20px; letter-spacing:.4px; }
   color: var(--muted);
   font-size: 13px;
 }
+.langToggle{
+  border:1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+  color: var(--white);
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
 .badge{
   display:flex; align-items:center; gap:8px;
   padding: 8px 10px;
@@ -199,13 +209,14 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
 <header>
   <div class="wrap top">
     <div>
-      <h1>Container Status</h1>
-      <div class="sub">Live-Übersicht</div>
+      <h1 id="title">Container Status</h1>
+      <div class="sub" id="subtitle">Live-Übersicht</div>
     </div>
     <div class="legend">
-      <div class="badge"><span class="dot red"></span>Warten</div>
-      <div class="badge"><span class="dot orange"></span>Angemeldet</div>
-      <div class="badge"><span class="dot green"></span>An die Rampe</div>
+      <button id="langToggle" class="langToggle" type="button">English</button>
+      <div class="badge"><span class="dot red"></span><span id="legend-red">Warten</span></div>
+      <div class="badge"><span class="dot orange"></span><span id="legend-orange">Angemeldet</span></div>
+      <div class="badge"><span class="dot green"></span><span id="legend-green">An die Rampe</span></div>
     </div>
   </div>
 </header>
@@ -219,6 +230,41 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
 <script>
 const socket = io();
 let audioContext = null;
+let currentLang = localStorage.getItem("viewerLang") || "de";
+let currentState = null;
+
+const I18N = {
+  de: {
+    title: "Container Status",
+    subtitle: "Live-Übersicht",
+    statusRed: "Warten",
+    statusOrange: "Angemeldet",
+    statusGreen: "An die Rampe",
+    scheduleShort: "⏱ Termin",
+    scheduleLabel: "Termin",
+    registeredAt: "Angemeldet um",
+    registered: "Angemeldet",
+    routeCta: "📍 Route zur Rampe öffnen",
+    toggle: "English"
+  },
+  en: {
+    title: "Container Status",
+    subtitle: "Live overview",
+    statusRed: "Waiting",
+    statusOrange: "Checked in",
+    statusGreen: "Go to ramp",
+    scheduleShort: "⏱ Slot",
+    scheduleLabel: "Slot",
+    registeredAt: "Checked in at",
+    registered: "Checked in",
+    routeCta: "📍 Open route to ramp",
+    toggle: "Deutsch"
+  }
+};
+
+function t(key){
+  return I18N[currentLang]?.[key] || I18N.de[key] || key;
+}
 
 function isGreenStatus(status){
   return String(status || "").trim().toLowerCase() === "green";
@@ -226,9 +272,9 @@ function isGreenStatus(status){
 
 function statusText(status){
   const normalized = String(status || "").trim().toLowerCase();
-  if (normalized === "green") return "An die Rampe";
-  if (normalized === "orange") return "Angemeldet";
-  return "Warten";
+  if (normalized === "green") return t("statusGreen");
+  if (normalized === "orange") return t("statusOrange");
+  return t("statusRed");
 }
 
 function timeText(t){
@@ -243,8 +289,8 @@ function rampLinkHtml(status){
   if (!isGreenStatus(status)) return "";
   return `
     <div class="rampCta">
-      <a href="https://maps.app.goo.gl/PCRKCpGGHQVNt7XG6" target="_blank" rel="noopener noreferrer">
-        📍 Route zur Rampe öffnen
+        <a href="https://maps.app.goo.gl/PCRKCpGGHQVNt7XG6" target="_blank" rel="noopener noreferrer">
+        ${t("routeCta")}
       </a>
       <div class="rampUrl">
         https://maps.app.goo.gl/PCRKCpGGHQVNt7XG6
@@ -279,16 +325,16 @@ function renderAll(state){
         <div class="name">Container ${i}</div>
         <div class="pills">
           <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
-          <div class="pill" id="time-${i}">⏱ Termin ${time}</div>
+          <div class="pill" id="time-${i}">${t("scheduleShort")} ${time}</div>
         </div>
       </div>
       <div class="statusArea">
-        <div class="regBox ${String(c.status || "").trim().toLowerCase() === "orange" ? "is-active" : ""}" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
+        <div class="regBox ${String(c.status || "").trim().toLowerCase() === "orange" ? "is-active" : ""}" id="regBox-${i}">🕒 ${t("registeredAt")}: <span id="reg-${i}">${reg}</span></div>
         <div class="bigPlate" id="plate-${i}">${plateText(c.plate)}</div>
         <div class="metaRow">
           <div id="metaStatus-${i}">${statusText(c.status)}</div>
-          <div id="metaTime-${i}">Termin: ${time}</div>
-          <div id="metaReg-${i}">Angemeldet: ${reg}</div>
+          <div id="metaTime-${i}">${t("scheduleLabel")}: ${time}</div>
+          <div id="metaReg-${i}">${t("registered")}: ${reg}</div>
         </div>
         <div id="ramp-${i}" style="width:100%;">${rampLinkHtml(c.status)}</div>
         <div class="bar"><div class="barFill ${String(c.status || "").trim().toLowerCase()}" id="bar-${i}"></div></div>
@@ -304,7 +350,7 @@ function applyOne(id, data){
   const reg = registeredTime(data.registeredAt);
 
   document.getElementById("pill-"+id).textContent = statusText(data.status);
-  document.getElementById("time-"+id).textContent = "⏱ Termin " + time;
+  document.getElementById("time-"+id).textContent = t("scheduleShort") + " " + time;
   document.getElementById("reg-"+id).textContent = reg;
 
   const regBox = document.getElementById("regBox-"+id);
@@ -312,13 +358,22 @@ function applyOne(id, data){
 
   document.getElementById("plate-"+id).textContent = plateText(data.plate);
   document.getElementById("metaStatus-"+id).textContent = statusText(data.status);
-  document.getElementById("metaTime-"+id).textContent = "Termin: " + time;
-  document.getElementById("metaReg-"+id).textContent = "Angemeldet: " + reg;
+  document.getElementById("metaTime-"+id).textContent = t("scheduleLabel") + ": " + time;
+  document.getElementById("metaReg-"+id).textContent = t("registered") + ": " + reg;
   document.getElementById("ramp-"+id).innerHTML = rampLinkHtml(data.status);
 
   const normalized = String(data.status || "").trim().toLowerCase();
   const safeStatus = ["red", "orange", "green"].includes(normalized) ? normalized : "red";
   document.getElementById("bar-"+id).className = "barFill " + safeStatus;
+}
+
+function applyStaticTranslations(){
+  document.getElementById("title").textContent = t("title");
+  document.getElementById("subtitle").textContent = t("subtitle");
+  document.getElementById("legend-red").textContent = t("statusRed");
+  document.getElementById("legend-orange").textContent = t("statusOrange");
+  document.getElementById("legend-green").textContent = t("statusGreen");
+  document.getElementById("langToggle").textContent = t("toggle");
 }
 
 function triggerNotification(){
@@ -351,11 +406,26 @@ function triggerNotification(){
   }
 }
 
-socket.on("init", (state) => renderAll(state));
+document.getElementById("langToggle").addEventListener("click", () => {
+  currentLang = currentLang === "de" ? "en" : "de";
+  localStorage.setItem("viewerLang", currentLang);
+  applyStaticTranslations();
+  if (currentState) renderAll(currentState);
+});
+
+socket.on("init", (state) => {
+  currentState = state;
+  applyStaticTranslations();
+  renderAll(state);
+});
+
 socket.on("statusChanged", ({ id, data }) => {
+  if (currentState) currentState[id] = data;
   applyOne(id, data);
   triggerNotification();
 });
+
+applyStaticTranslations();
 </script>
 </body>
 </html>

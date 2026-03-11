@@ -449,12 +449,9 @@ function applyOne(id, data){
 
 }
 
-// ===== Historie UI (ohne Details, mit Mapping, admin_set_time ausgeblendet) =====
+// ===== Historie UI (nur abgeschlossene Vorgänge) =====
 const TYPE_LABELS = {
-  "admin_reset_container": "Abgeschlossen",
-  "admin_set_status": "Rampe Frei",
-  "driver_register": "Registriert"
-  // andere Typen werden automatisch ausgeblendet (außer du willst sie später)
+  "admin_reset_container": "Abgeschlossen"
 };
 
 function fmtDateTime(iso){
@@ -471,10 +468,9 @@ function renderHistory(entries){
   const body = document.getElementById("histBody");
   body.innerHTML = "";
 
-  // Nur die drei gewünschten Typen anzeigen
+  // Nur abgeschlossene Vorgänge anzeigen
   const filtered = (entries || []).filter(e => {
     if (!e || !e.type) return false;
-    if (e.type === "admin_set_time") return false; // explizit raus
     return !!TYPE_LABELS[e.type];
   });
 

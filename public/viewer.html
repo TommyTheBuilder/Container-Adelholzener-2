@@ -109,6 +109,22 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
   color: var(--muted);
 }
 
+.regBox{
+  width:100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+.regBox.is-active{
+  border-color: rgba(245,158,11,.45);
+  background: rgba(245,158,11,.14);
+  color: var(--white);
+}
+
 .statusArea{
   padding: 16px 14px 16px;
   display:flex;
@@ -264,10 +280,11 @@ function renderAll(state){
         <div class="pills">
           <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
           <div class="pill" id="time-${i}">⏱ Termin ${time}</div>
-          <div class="pill" id="reg-${i}">🕒 Angemeldet ${reg}</div>
+          <div class="pill" id="regPill-${i}">🕒 Angemeldet ${reg}</div>
         </div>
       </div>
       <div class="statusArea">
+        <div class="regBox ${String(c.status || "").trim().toLowerCase() === "orange" ? "is-active" : ""}" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
         <div class="bigPlate" id="plate-${i}">${plateText(c.plate)}</div>
         <div class="metaRow">
           <div id="metaStatus-${i}">${statusText(c.status)}</div>
@@ -289,7 +306,11 @@ function applyOne(id, data){
 
   document.getElementById("pill-"+id).textContent = statusText(data.status);
   document.getElementById("time-"+id).textContent = "⏱ Termin " + time;
-  document.getElementById("reg-"+id).textContent = "🕒 Angemeldet " + reg;
+  document.getElementById("regPill-"+id).textContent = "🕒 Angemeldet " + reg;
+  document.getElementById("reg-"+id).textContent = reg;
+
+  const regBox = document.getElementById("regBox-"+id);
+  if (regBox) regBox.classList.toggle("is-active", String(data.status || "").trim().toLowerCase() === "orange");
 
   document.getElementById("plate-"+id).textContent = plateText(data.plate);
   document.getElementById("metaStatus-"+id).textContent = statusText(data.status);

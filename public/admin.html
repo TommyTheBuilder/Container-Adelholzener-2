@@ -149,15 +149,7 @@ h1{ margin:0; font-size:20px; letter-spacing:.4px; }
 .dot.blue{background:var(--blue)}
 .dot.violet{background:var(--violet)}
 
-.globalHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:8px;}
-.logoLink{display:inline-flex;align-items:center;}
-.logoImage{height:38px;width:auto;object-fit:contain;}
 .topActions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-left:auto; justify-content:flex-end; }
-.settingsWrap{ position:relative; }
-.settingsMenu{ position:absolute; right:0; top:calc(100% + 8px); min-width:240px; border-radius:12px; border:1px solid var(--stroke); background:rgba(11,18,32,.96); box-shadow:var(--shadow); overflow:hidden; display:none; z-index:40;}
-.settingsMenu.open{ display:block; }
-.menuItem{ width:100%; display:block; text-align:left; border:0; margin:0; padding:11px 14px; font-size:14px; cursor:pointer; text-decoration:none; color:var(--white); background:transparent; border-bottom:1px solid var(--stroke);}
-.menuItem:last-child{ border-bottom:0; }
 .smallBtn{
   padding: 8px 10px;
   border-radius: 12px;
@@ -450,23 +442,6 @@ body.dark .toast{
 
 <body>
 <header>
-  <div class="wrap globalHeader">
-    <a href="/viewer.html" class="logoLink" aria-label="Container Dashboard">
-      <img src="/logo.png" alt="Logo" class="logoImage" />
-    </a>
-    <div class="settingsWrap">
-      <button class="smallBtn themeToggle" id="settingsToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Einstellungen">⚙️</button>
-      <div class="settingsMenu" id="settingsMenu" role="menu">
-        <a class="menuItem" href="/admin.html">Admin Steuerung</a>
-        <a class="menuItem" href="/driver.html">Fahrer Anmeldung</a>
-        <a class="menuItem" href="/viewer.html">Live-Übersicht</a>
-        <a class="menuItem" href="https://test.paletten-ms.de/password.html">Passwort ändern</a>
-        <button class="menuItem" type="button" id="themeToggle">Darkmode umschalten</button>
-        <a class="menuItem" href="https://test.paletten-ms.de/dashboard.html">Modul-Dashboard</a>
-        <a class="menuItem" href="https://test.paletten-ms.de/logout.html">Logout</a>
-      </div>
-    </div>
-  </div>
   <div class="wrap top">
     <div>
       <h1>Admin Steuerung</h1>
@@ -474,6 +449,8 @@ body.dark .toast{
     </div>
 
     <div class="topActions">
+      <button class="smallBtn themeToggle" id="themeToggle" title="Dark Mode umschalten" aria-label="Dark Mode umschalten">🌙</button>
+      <a class="smallBtn linkBtn" href="https://test.paletten-ms.de/public/dashboard.html">Zum Dashboard</a>
       <button class="smallBtn" id="resetAllBtn">Alle zurücksetzen</button>
       <div class="legend">
         <div class="badge"><span class="dot red"></span>Slot erstellt</div>
@@ -550,14 +527,6 @@ function applyTheme(theme){
     themeBtn.title = isDark ? "Light Mode aktivieren" : "Dark Mode aktivieren";
     themeBtn.setAttribute("aria-label", themeBtn.title);
   }
-}
-
-function toggleSettingsMenu(force){
-  const menu = document.getElementById("settingsMenu");
-  const btn = document.getElementById("settingsToggle");
-  const shouldOpen = typeof force === "boolean" ? force : !menu.classList.contains("open");
-  menu.classList.toggle("open", shouldOpen);
-  btn.setAttribute("aria-expanded", String(shouldOpen));
 }
 
 const params = new URLSearchParams(location.search);
@@ -908,21 +877,6 @@ document.getElementById("histClear").addEventListener("click", () => {
 document.getElementById("themeToggle").addEventListener("click", () => {
   const nextTheme = document.body.classList.contains("dark") ? "light" : "dark";
   applyTheme(nextTheme);
-  toggleSettingsMenu(false);
-});
-
-document.getElementById("settingsToggle").addEventListener("click", (event) => {
-  event.stopPropagation();
-  toggleSettingsMenu();
-});
-
-document.addEventListener("click", (event) => {
-  const wrap = document.querySelector(".settingsWrap");
-  if (wrap && !wrap.contains(event.target)) toggleSettingsMenu(false);
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") toggleSettingsMenu(false);
 });
 </script>
 </body>

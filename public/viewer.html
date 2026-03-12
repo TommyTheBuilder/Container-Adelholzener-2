@@ -22,6 +22,8 @@
   --status-red: #ef4444;
   --status-orange: #f59e0b;
   --status-green: #22c55e;
+  --status-blue: #3b82f6;
+  --status-violet: #8b5cf6;
 }
 
 * { box-sizing: border-box; }
@@ -195,6 +197,8 @@ header {
 .dot.red { background: var(--status-red); }
 .dot.orange { background: var(--status-orange); }
 .dot.green { background: var(--status-green); }
+.dot.blue { background: var(--status-blue); }
+.dot.violet { background: var(--status-violet); }
 
 .langToggle {
   border-radius: 999px;
@@ -229,6 +233,12 @@ header {
   overflow: hidden;
 }
 
+.card.tone-red { border-color: rgba(239,68,68,.35); }
+.card.tone-orange { border-color: rgba(245,158,11,.45); }
+.card.tone-green { border-color: rgba(34,197,94,.45); }
+.card.tone-blue { border-color: rgba(59,130,246,.45); }
+.card.tone-violet { border-color: rgba(139,92,246,.45); }
+
 .cardTop {
   padding: 12px 14px;
   display: flex;
@@ -250,6 +260,12 @@ header {
   background: var(--panel-bg);
   color: var(--text-muted);
 }
+
+.pill.tone-red { background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.34); color: var(--text-main); }
+.pill.tone-orange { background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.42); color: var(--text-main); }
+.pill.tone-green { background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.34); color: var(--text-main); }
+.pill.tone-blue { background: rgba(59,130,246,.16); border-color: rgba(59,130,246,.42); color: var(--text-main); }
+.pill.tone-violet { background: rgba(139,92,246,.16); border-color: rgba(139,92,246,.42); color: var(--text-main); }
 
 .statusArea {
   padding: 16px 14px;
@@ -311,6 +327,8 @@ body.dark .bar { background: #0F172A; }
 .barFill.red { background: var(--status-red); }
 .barFill.orange { background: var(--status-orange); }
 .barFill.green { background: var(--status-green); }
+.barFill.blue { background: var(--status-blue); }
+.barFill.violet { background: var(--status-violet); }
 
 .rampCta {
   width: 100%;
@@ -360,9 +378,11 @@ body.dark .rampUrl { color: #bbf7d0; }
     </div>
     <div class="legend">
       <button id="langToggle" class="langToggle" type="button">English</button>
-      <div class="badge"><span class="dot red"></span><span id="legend-red">Warten</span></div>
+      <div class="badge"><span class="dot red"></span><span id="legend-red">Slot erstellt</span></div>
       <div class="badge"><span class="dot orange"></span><span id="legend-orange">Angemeldet</span></div>
-      <div class="badge"><span class="dot green"></span><span id="legend-green">An die Rampe</span></div>
+      <div class="badge"><span class="dot blue"></span><span id="legend-blue">An die Rampe</span></div>
+      <div class="badge"><span class="dot violet"></span><span id="legend-violet">Warten auf Zollfreigabe</span></div>
+      <div class="badge"><span class="dot green"></span><span id="legend-green">Zollfreigabe erteilt</span></div>
     </div>
   </div>
 </header>
@@ -383,9 +403,11 @@ const I18N = {
   de: {
     title: "Container Status",
     subtitle: "Live-Übersicht",
-    statusRed: "Warten",
+    statusRed: "Slot erstellt",
     statusOrange: "Angemeldet",
-    statusGreen: "An die Rampe",
+    statusBlue: "An die Rampe",
+    statusViolet: "Warten auf Zollfreigabe",
+    statusGreen: "Zollfreigabe erteilt",
     scheduleLabel: "Termin",
     registeredAt: "Angemeldet um",
     registered: "Angemeldet",
@@ -395,9 +417,11 @@ const I18N = {
   en: {
     title: "Container Status",
     subtitle: "Live overview",
-    statusRed: "Waiting",
+    statusRed: "Slot created",
     statusOrange: "Checked in",
-    statusGreen: "Go to ramp",
+    statusBlue: "Go to ramp",
+    statusViolet: "Waiting for customs release",
+    statusGreen: "Customs release granted",
     scheduleLabel: "Slot",
     registeredAt: "Checked in at",
     registered: "Checked in",
@@ -431,9 +455,10 @@ function isGreenStatus(status){
 
 function statusText(status){
   const normalized = String(status || "").trim().toLowerCase();
-  if (normalized === "customs_released") return "Zollfreigabe erteilt";
-  if (normalized === "waiting_customs") return "Warten auf Zollfreigabe";
-  if (normalized === "to_ramp" || normalized === "green") return t("statusGreen");
+  if (normalized === "customs_released") return t("statusGreen");
+  if (normalized === "waiting_customs") return t("statusViolet");
+  if (normalized === "to_ramp") return t("statusBlue");
+  if (normalized === "green") return t("statusGreen");
   if (normalized === "registered" || normalized === "orange") return t("statusOrange");
   return t("statusRed");
 }
@@ -441,7 +466,9 @@ function statusText(status){
 function statusTone(status){
   const normalized = String(status || "").trim().toLowerCase();
   if (normalized === "registered" || normalized === "orange") return "orange";
-  if (["to_ramp","waiting_customs","customs_released","green"].includes(normalized)) return "green";
+  if (normalized === "to_ramp") return "blue";
+  if (normalized === "waiting_customs") return "violet";
+  if (normalized === "customs_released" || normalized === "green") return "green";
   return "red";
 }
 
@@ -470,14 +497,15 @@ function renderAll(state){
     const reg = registeredTime(c.registeredAt);
 
     const card = document.createElement("div");
-    card.className = "card";
+    const tone = statusTone(c.status);
+    card.className = "card tone-" + tone;
     card.id = "card-" + i;
 
     card.innerHTML = `
       <div class="cardTop">
         <div class="name">Container ${i}</div>
         <div class="pills">
-          <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
+          <div class="pill tone-${tone}" id="pill-${i}">${statusText(c.status)}</div>
           <div class="pill" id="time-${i}">⏱ Termin ${time}</div>
         </div>
       </div>
@@ -501,8 +529,11 @@ function renderAll(state){
 function applyOne(id, data){
   const time = timeText(data.time);
   const reg = registeredTime(data.registeredAt);
+  const tone = statusTone(data.status);
 
+  document.getElementById("card-"+id).className = "card tone-" + tone;
   document.getElementById("pill-"+id).textContent = statusText(data.status);
+  document.getElementById("pill-"+id).className = "pill tone-" + tone;
   document.getElementById("time-"+id).textContent = "⏱ Termin " + time;
   document.getElementById("plate-"+id).textContent = plateText(data.plate);
   document.getElementById("metaStatus-"+id).textContent = statusText(data.status);
@@ -517,6 +548,8 @@ function applyStaticTranslations(){
   document.getElementById("subtitle").textContent = t("subtitle");
   document.getElementById("legend-red").textContent = t("statusRed");
   document.getElementById("legend-orange").textContent = t("statusOrange");
+  document.getElementById("legend-blue").textContent = t("statusBlue");
+  document.getElementById("legend-violet").textContent = t("statusViolet");
   document.getElementById("legend-green").textContent = t("statusGreen");
   document.getElementById("langToggle").textContent = t("toggle");
 }

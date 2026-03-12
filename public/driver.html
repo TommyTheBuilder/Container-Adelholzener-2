@@ -22,6 +22,8 @@
   --red:#ef4444;
   --orange:#f59e0b;
   --green:#22c55e;
+  --blue:#3b82f6;
+  --violet:#8b5cf6;
   --card: rgba(255,255,255,.05);
   --card2: rgba(255,255,255,.02);
 }
@@ -173,6 +175,8 @@ h1{ margin:0; font-size: 20px; letter-spacing:.3px; }
 .dot.red{ background: var(--red); }
 .dot.orange{ background: var(--orange); }
 .dot.green{ background: var(--green); }
+.dot.blue{ background: var(--blue); }
+.dot.violet{ background: var(--violet); }
 
 main .wrap{ padding-top: 16px; padding-bottom: 22px; }
 
@@ -198,6 +202,12 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
 .slot:active{ transform: scale(.99); }
 .slot.disabled{ opacity: .55; cursor: not-allowed; }
 .slot.selected{ outline: 3px solid rgba(255,255,255,.35); outline-offset: 2px; }
+
+.slot.tone-red{ border-color: rgba(239,68,68,.35); }
+.slot.tone-orange{ border-color: rgba(245,158,11,.45); }
+.slot.tone-green{ border-color: rgba(34,197,94,.45); }
+.slot.tone-blue{ border-color: rgba(59,130,246,.45); }
+.slot.tone-violet{ border-color: rgba(139,92,246,.45); }
 
 .slotTop{
   padding: 10px 12px;
@@ -245,6 +255,11 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   font-size: 12px;
 }
 .statusText{ font-weight: 900; color: var(--white); }
+.statusText.tone-red{ color: var(--red); }
+.statusText.tone-orange{ color: var(--orange); }
+.statusText.tone-green{ color: var(--green); }
+.statusText.tone-blue{ color: var(--blue); }
+.statusText.tone-violet{ color: var(--violet); }
 
 .regRow{
   display:flex;
@@ -267,6 +282,8 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
 .fill.red{ background: var(--red); }
 .fill.orange{ background: var(--orange); }
 .fill.green{ background: var(--green); }
+.fill.blue{ background: var(--blue); }
+.fill.violet{ background: var(--violet); }
 
 
 .formCard{
@@ -336,9 +353,11 @@ input{
     </div>
     <div class="legend">
       <button id="langToggle" class="langToggle" type="button">English</button>
-      <div class="badge"><span class="dot red"></span><span id="legend-red">Frei</span></div>
+      <div class="badge"><span class="dot red"></span><span id="legend-red">Slot erstellt</span></div>
       <div class="badge"><span class="dot orange"></span><span id="legend-orange">Angemeldet</span></div>
-      <div class="badge"><span class="dot green"></span><span id="legend-green">An die Rampe</span></div>
+      <div class="badge"><span class="dot blue"></span><span id="legend-blue">An die Rampe</span></div>
+      <div class="badge"><span class="dot violet"></span><span id="legend-violet">Warten auf Zollfreigabe</span></div>
+      <div class="badge"><span class="dot green"></span><span id="legend-green">Zollfreigabe erteilt</span></div>
     </div>
   </div>
 </header>
@@ -382,12 +401,16 @@ const I18N = {
   de: {
     title: "Fahrer Anmeldung",
     subtitle: "Nur Container mit Termin-Uhrzeit sind auswählbar.",
-    legendRed: "Frei",
+    legendRed: "Slot erstellt",
     legendOrange: "Angemeldet",
-    legendGreen: "An die Rampe",
-    statusRed: "Warten",
+    legendBlue: "An die Rampe",
+    legendViolet: "Warten auf Zollfreigabe",
+    legendGreen: "Zollfreigabe erteilt",
+    statusRed: "Slot erstellt",
     statusOrange: "Angemeldet",
-    statusGreen: "An die Rampe",
+    statusBlue: "An die Rampe",
+    statusViolet: "Warten auf Zollfreigabe",
+    statusGreen: "Zollfreigabe erteilt",
     free: "frei",
     occupied: "belegt",
     noSlot: "kein Termin",
@@ -412,12 +435,16 @@ const I18N = {
   en: {
     title: "Driver Check-in",
     subtitle: "Only containers with a scheduled time can be selected.",
-    legendRed: "Free",
+    legendRed: "Slot created",
     legendOrange: "Checked in",
-    legendGreen: "Go to ramp",
-    statusRed: "Waiting",
+    legendBlue: "Go to ramp",
+    legendViolet: "Waiting for customs release",
+    legendGreen: "Customs release granted",
+    statusRed: "Slot created",
     statusOrange: "Checked in",
-    statusGreen: "Go to ramp",
+    statusBlue: "Go to ramp",
+    statusViolet: "Waiting for customs release",
+    statusGreen: "Customs release granted",
     free: "free",
     occupied: "occupied",
     noSlot: "no slot",
@@ -447,8 +474,8 @@ function t(key){
 
 function statusText(status){
   if (status === "customs_released") return t("statusGreen");
-  if (status === "waiting_customs") return "Warten auf Zollfreigabe";
-  if (status === "to_ramp") return t("statusGreen");
+  if (status === "waiting_customs") return t("statusViolet");
+  if (status === "to_ramp") return t("statusBlue");
   if (status === "registered") return t("statusOrange");
   if (status === "green") return t("statusGreen");
   if (status === "orange") return t("statusOrange");
@@ -465,7 +492,9 @@ function isFree(c){
 
 function statusTone(status){
   if (status === "registered" || status === "orange") return "orange";
-  if (status === "to_ramp" || status === "waiting_customs" || status === "customs_released" || status === "green") return "green";
+  if (status === "to_ramp") return "blue";
+  if (status === "waiting_customs") return "violet";
+  if (status === "customs_released" || status === "green") return "green";
   return "red";
 }
 
@@ -523,8 +552,9 @@ function renderAll(){
     else if (!isFree(c)) headNote = t("occupied");
     else headNote = t("free");
 
+    const tone = statusTone(c.status);
     const slot = document.createElement("div");
-    slot.className = "slot" + (disabled ? " disabled" : "") + (selectedId === i ? " selected" : "");
+    slot.className = "slot tone-" + tone + (disabled ? " disabled" : "") + (selectedId === i ? " selected" : "");
     slot.id = "slot-" + i;
 
     slot.innerHTML = `
@@ -538,7 +568,7 @@ function renderAll(){
 
         <div class="statusRow">
           <div>${t("status")}</div>
-          <div class="statusText">${statusText(c.status)}</div>
+          <div class="statusText tone-${tone}">${statusText(c.status)}</div>
         </div>
 
         <div class="regRow">
@@ -587,6 +617,8 @@ function applyStaticTranslations(){
   document.getElementById("subtitle").textContent = t("subtitle");
   document.getElementById("legend-red").textContent = t("legendRed");
   document.getElementById("legend-orange").textContent = t("legendOrange");
+  document.getElementById("legend-blue").textContent = t("legendBlue");
+  document.getElementById("legend-violet").textContent = t("legendViolet");
   document.getElementById("legend-green").textContent = t("legendGreen");
   document.getElementById("plateLabel").textContent = t("plateLabel");
   plateEl.placeholder = t("platePlaceholder");

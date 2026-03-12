@@ -5,63 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Container Board</title>
 <script src="/socket.io/socket.io.js"></script>
+<script>
+  const __design = new URLSearchParams(location.search).get("design");
+  document.documentElement.dataset.design = __design === "2" ? "2" : "1";
+  const savedTheme = localStorage.getItem("viewer-theme");
+  if (savedTheme === "dark") document.documentElement.classList.add("theme-dark");
+</script>
 <style>
-:root {
-  --header-bg: #0f2f67;
-  --brand-blue: #2563EB;
-
-  --body-bg: #F3F4F6;
-  --panel-bg: #FFFFFF;
-  --panel-border: #E2E8F0;
-  --panel-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --text-main: #111827;
-  --text-muted: #475569;
-  --table-head-bg: #E2E8F0;
-  --table-head-text: #334155;
-
-  --status-red: #ef4444;
-  --status-orange: #f59e0b;
-  --status-green: #22c55e;
-}
+:root{--bg:#0b1220;--muted:#a7b3d1;--white:#f6f8ff;--stroke:rgba(255,255,255,.10);--shadow:0 10px 30px rgba(0,0,0,.35);--radius:18px;--status-red:#ef4444;--status-orange:#f59e0b;--status-green:#22c55e;--panel-bg:rgba(255,255,255,.05);--panel-border:rgba(255,255,255,.10);--table-head-bg:rgba(255,255,255,.08);--text-main:var(--white);--text-muted:var(--muted);--panel-shadow:0 10px 30px rgba(0,0,0,.35);--table-head-text:var(--white);--brand-blue:#2563EB;}
 
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  color: var(--text-main);
-  background: var(--body-bg);
-}
+body{margin:0;font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;color:var(--text-main);background: radial-gradient(1200px 600px at 20% 0%, rgba(59,130,246,.12), transparent 55%), radial-gradient(900px 600px at 80% 20%, rgba(34,197,94,.10), transparent 55%), var(--bg);}
+body.dark{--bg:#050912;--muted:#c7d2fe;--white:#f6f8ff;--panel-bg:rgba(255,255,255,.04);--panel-border:rgba(255,255,255,.12);--table-head-bg:rgba(255,255,255,.10);}
+header{overflow:hidden;position:sticky;top:0;backdrop-filter: blur(10px);background:rgba(11,18,32,.70);border-bottom:1px solid var(--stroke);z-index:20;}
 
-body.dark {
-  --body-bg: #121826;
-  --panel-bg: #1E2536;
-  --panel-border: #334155;
-  --panel-shadow: none;
-  --text-main: #F8FAFC;
-  --text-muted: #CBD5E1;
-  --table-head-bg: #0F172A;
-  --table-head-text: #E2E8F0;
-}
-
-header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  width: 100%;
-  background: var(--header-bg);
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, .35);
-}
-
-.headerBar {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 20px;
-}
+.headerBar{max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 18px 8px;}
 
 .logoLink {
   display: inline-flex;
@@ -69,7 +28,7 @@ header {
 }
 
 .logoImage {
-  height: 42px;
+  height: 38px;
   width: auto;
   object-fit: contain;
 }
@@ -127,7 +86,7 @@ header {
   box-shadow: 0 10px 24px rgba(15,23,42,.25);
   display: none;
   z-index: 30;
-  background: #F1F5F9;
+  background: rgba(11,18,32,.96);
 }
 
 .settingsMenu.open { display: block; }
@@ -141,21 +100,13 @@ header {
   padding: 11px 14px;
   font-size: 14px;
   cursor: pointer;
+  text-decoration:none;
+  color: var(--white);
+  background: transparent;
+  border-bottom: 1px solid var(--stroke);
 }
+.menuItem:last-child{ border-bottom:0; }
 
-.menuItem.darkSection {
-  background: #1F2937;
-  color: #fff;
-  font-weight: 700;
-}
-
-.menuItem.lightSection {
-  background: #F1F5F9;
-  color: #0F172A;
-  border-bottom: 1px solid #E2E8F0;
-}
-
-.menuItem.lightSection:last-of-type { border-bottom: 0; }
 
 .toolbar {
   max-width: 1120px;
@@ -332,22 +283,21 @@ body.dark .rampUrl { color: #bbf7d0; }
 <body>
 <header>
   <div class="headerBar">
-    <a href="/public/viewer.html" class="logoLink" aria-label="ICS Home">
+    <a href="/viewer.html" class="logoLink" aria-label="ICS Home">
       <img src="/logo.png" alt="ICS Logo" class="logoImage" />
     </a>
 
     <div class="headerActions">
-      <button class="iconBtn" type="button" aria-label="Benachrichtigungen">🔔</button>
-      <a class="navBtn primary" href="/public/driver.html">Frachtführerstammdaten</a>
       <div class="settingsWrap">
         <button class="iconBtn" id="settingsToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Einstellungen">⚙️</button>
         <div class="settingsMenu" id="settingsMenu" role="menu">
-          <button class="menuItem darkSection" type="button">Admin</button>
-          <button class="menuItem lightSection" type="button">Passwort ändern</button>
-          <a class="menuItem lightSection" href="/public/driver.html">Container Anmeldung</a>
-          <button class="menuItem lightSection" type="button" id="darkmodeToggle">Darkmode umschalten</button>
-          <button class="menuItem lightSection" type="button">Modul-Dashboard</button>
-          <button class="menuItem darkSection" type="button">Logout</button>
+          <a class="menuItem" href="/admin.html">Admin Steuerung</a>
+          <a class="menuItem" href="/driver.html">Fahrer Anmeldung</a>
+          <a class="menuItem" href="/viewer.html">Live-Übersicht</a>
+          <a class="menuItem" href="https://test.paletten-ms.de/password.html">Passwort ändern</a>
+          <button class="menuItem" type="button" id="darkmodeToggle">Darkmode umschalten</button>
+          <a class="menuItem" href="https://test.paletten-ms.de/dashboard.html">Modul-Dashboard</a>
+          <a class="menuItem" href="https://test.paletten-ms.de/logout.html">Logout</a>
         </div>
       </div>
     </div>
@@ -409,6 +359,7 @@ const I18N = {
 function applyTheme(theme) {
   const isDark = theme === "dark";
   document.body.classList.toggle("dark", isDark);
+  document.documentElement.classList.toggle("theme-dark", isDark);
   localStorage.setItem("viewer-theme", isDark ? "dark" : "light");
 }
 
@@ -580,7 +531,7 @@ socket.on("statusChanged", ({ id, data }) => {
   triggerNotification();
 });
 
-applyTheme(localStorage.getItem("viewer-theme") || "light");
+applyTheme(localStorage.getItem("viewer-theme") || (document.documentElement.classList.contains("theme-dark") ? "dark" : "light"));
 applyStaticTranslations();
 </script>
 </body>

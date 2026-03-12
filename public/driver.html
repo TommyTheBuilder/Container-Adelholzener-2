@@ -446,6 +446,10 @@ function t(key){
 }
 
 function statusText(status){
+  if (status === "customs_released") return t("statusGreen");
+  if (status === "waiting_customs") return "Warten auf Zollfreigabe";
+  if (status === "to_ramp") return t("statusGreen");
+  if (status === "registered") return t("statusOrange");
   if (status === "green") return t("statusGreen");
   if (status === "orange") return t("statusOrange");
   return t("statusRed");
@@ -454,9 +458,15 @@ function hasTime(c){ return !!(c.time && c.time.trim()); }
 function timeText(c){ return hasTime(c) ? c.time.trim() : "--:--"; }
 
 
-// frei = rot + kein Kennzeichen
+// frei = Slot erstellt + kein Kennzeichen
 function isFree(c){
-  return c.status === "red" && (!c.plate || !c.plate.trim());
+  return (c.status === "slot_created" || c.status === "red") && (!c.plate || !c.plate.trim());
+}
+
+function statusTone(status){
+  if (status === "registered" || status === "orange") return "orange";
+  if (status === "to_ramp" || status === "waiting_customs" || status === "customs_released" || status === "green") return "green";
+  return "red";
 }
 
 // wählbar: Termin gesetzt + frei
@@ -537,7 +547,7 @@ function renderAll(){
         </div>
 
 
-        <div class="bar"><div class="fill ${c.status}"></div></div>
+        <div class="bar"><div class="fill ${statusTone(c.status)}"></div></div>
       </div>
     `;
 

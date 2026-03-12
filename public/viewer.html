@@ -49,9 +49,9 @@ body.dark {
 header {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 100;
   width: 100%;
-  background: var(--header-bg);
+  background-color: var(--header-bg);
   color: #fff;
   box-shadow: 0 2px 10px rgba(15, 23, 42, .35);
 }
@@ -356,8 +356,6 @@ body.dark .rampUrl { color: #bbf7d0; }
     </a>
 
     <div class="headerActions">
-      <button class="iconBtn" type="button" aria-label="Benachrichtigungen">🔔</button>
-      <a class="navBtn primary" href="/driver.html">Frachtführerstammdaten</a>
       <div class="settingsWrap">
         <button class="iconBtn" id="settingsToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Einstellungen">⚙️</button>
         <div class="settingsMenu" id="settingsMenu" role="menu">
@@ -365,7 +363,7 @@ body.dark .rampUrl { color: #bbf7d0; }
           <button class="menuItem lightSection" type="button" id="changePasswordBtn">Passwort ändern</button>
           <a class="menuItem menuItemLink lightSection" href="/driver.html">Container Anmeldung</a>
           <button class="menuItem lightSection" type="button" id="darkmodeToggle">Darkmode umschalten</button>
-          <a class="menuItem menuItemLink lightSection" id="dashboardLink" href="/dashboard.html">Modul-Dashboard</a>
+          <a class="menuItem menuItemLink lightSection" id="dashboardLink" href="https://test.paletten-ms.de/public/dashboard.html">Modul-Dashboard</a>
           <button class="menuItem darkSection" type="button" id="logoutBtn">Logout</button>
         </div>
       </div>
@@ -396,7 +394,7 @@ body.dark .rampUrl { color: #bbf7d0; }
 
 <script>
 const socket = io();
-const DASHBOARD_URL = "/dashboard.html";
+const DASHBOARD_URL = "https://test.paletten-ms.de/public/dashboard.html";
 let audioContext = null;
 let currentLang = localStorage.getItem("viewerLang") || "de";
 let currentState = null;

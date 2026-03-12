@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin – Container Board</title>
 <script src="/socket.io/socket.io.js"></script>
+<script>
+  const __design = new URLSearchParams(location.search).get("design");
+  document.documentElement.dataset.design = __design === "2" ? "2" : "1";
+</script>
 
 <style>
 :root{
@@ -28,6 +32,7 @@ body{
               var(--bg);
 }
 header{
+  overflow:hidden;
   position: sticky;
   top: 0;
   backdrop-filter: blur(10px);
@@ -35,6 +40,86 @@ header{
   border-bottom: 1px solid var(--stroke);
   z-index: 10;
 }
+
+header::after{
+  content:"";
+  position:absolute;
+  top:6px;
+  right:18px;
+  bottom:6px;
+  width:140px;
+  background: url("/logo.png") no-repeat right center / contain;
+  opacity:.16;
+  pointer-events:none;
+}
+header .wrap{ position: relative; z-index: 1; }
+.top{ padding-right: 152px; }
+
+html[data-design="2"] body{
+  background: radial-gradient(1200px 600px at 80% 0%, rgba(14,165,233,.16), transparent 55%),
+              radial-gradient(900px 600px at 20% 20%, rgba(245,158,11,.12), transparent 55%),
+              var(--bg);
+}
+html[data-design="2"] header{
+  background: linear-gradient(90deg, rgba(11,18,32,.88), rgba(11,18,32,.58));
+  border-bottom-color: rgba(255,255,255,.16);
+}
+html[data-design="2"] header::after{
+  left:18px;
+  right:auto;
+  width:168px;
+  background: url("/logo.png") no-repeat left center / contain;
+  opacity:.24;
+  filter: drop-shadow(0 0 12px rgba(255,255,255,.2));
+}
+html[data-design="2"] .top{
+  padding-right: 0;
+  padding-left: 180px;
+}
+
+@media (max-width: 900px){
+  header::after{
+    width: 108px;
+    opacity: .12;
+  }
+  .top,
+  html[data-design="2"] .top{
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 640px){
+  header::after{ display:none; }
+}
+
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#eef3fb;
+    --card:#ffffff;
+    --muted:#3d4c68;
+    --white:#10213b;
+    --stroke:rgba(16,33,59,.18);
+  }
+  body{
+    background: radial-gradient(1100px 520px at 20% 0%, rgba(59,130,246,.20), transparent 60%),
+                radial-gradient(900px 600px at 80% 20%, rgba(16,185,129,.16), transparent 60%),
+                var(--bg);
+  }
+  html[data-design="2"] body{
+    background: radial-gradient(1200px 600px at 80% 0%, rgba(14,165,233,.20), transparent 55%),
+                radial-gradient(900px 600px at 20% 20%, rgba(245,158,11,.18), transparent 55%),
+                var(--bg);
+  }
+  header{
+    background: rgba(255,255,255,.82);
+  }
+  html[data-design="2"] header{
+    background: linear-gradient(90deg, rgba(255,255,255,.92), rgba(255,255,255,.72));
+    border-bottom-color: rgba(16,33,59,.20);
+  }
+}
+
 .wrap{
   max-width: 1100px;
   margin: 0 auto;
@@ -164,6 +249,7 @@ input{
   font-weight: 800;
 }
 .smallBtn:hover{ background: rgba(255,255,255,.10); }
+.linkBtn{ text-decoration:none; display:inline-flex; align-items:center; }
 
 .notice{
   margin-top: 6px;
@@ -203,6 +289,7 @@ input{
       <div class="sub">Rot = Warten · Grün = An die Rampe</div>
     </div>
     <div class="topActions">
+      <a class="smallBtn linkBtn" href="https://test.paletten-ms.de/public/dashboard.html" target="_blank" rel="noopener noreferrer">Zum Dashboard</a>
       <button class="smallBtn" id="resetBtn">Alle zurücksetzen</button>
       <div class="legend">
         <div class="badge"><span class="dot red"></span>Warten</div>

@@ -229,6 +229,10 @@ header {
   overflow: hidden;
 }
 
+.card.tone-red { border-color: rgba(239,68,68,.35); }
+.card.tone-orange { border-color: rgba(245,158,11,.45); }
+.card.tone-green { border-color: rgba(34,197,94,.45); }
+
 .cardTop {
   padding: 12px 14px;
   display: flex;
@@ -250,6 +254,10 @@ header {
   background: var(--panel-bg);
   color: var(--text-muted);
 }
+
+.pill.tone-red { background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.34); color: var(--text-main); }
+.pill.tone-orange { background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.42); color: var(--text-main); }
+.pill.tone-green { background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.34); color: var(--text-main); }
 
 .statusArea {
   padding: 16px 14px;
@@ -470,14 +478,15 @@ function renderAll(state){
     const reg = registeredTime(c.registeredAt);
 
     const card = document.createElement("div");
-    card.className = "card";
+    const tone = statusTone(c.status);
+    card.className = "card tone-" + tone;
     card.id = "card-" + i;
 
     card.innerHTML = `
       <div class="cardTop">
         <div class="name">Container ${i}</div>
         <div class="pills">
-          <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
+          <div class="pill tone-${tone}" id="pill-${i}">${statusText(c.status)}</div>
           <div class="pill" id="time-${i}">⏱ Termin ${time}</div>
         </div>
       </div>
@@ -501,8 +510,11 @@ function renderAll(state){
 function applyOne(id, data){
   const time = timeText(data.time);
   const reg = registeredTime(data.registeredAt);
+  const tone = statusTone(data.status);
 
+  document.getElementById("card-"+id).className = "card tone-" + tone;
   document.getElementById("pill-"+id).textContent = statusText(data.status);
+  document.getElementById("pill-"+id).className = "pill tone-" + tone;
   document.getElementById("time-"+id).textContent = "⏱ Termin " + time;
   document.getElementById("plate-"+id).textContent = plateText(data.plate);
   document.getElementById("metaStatus-"+id).textContent = statusText(data.status);

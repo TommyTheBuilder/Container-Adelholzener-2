@@ -12,7 +12,7 @@
   if (savedTheme === "dark") document.documentElement.classList.add("theme-dark");
 </script>
 <style>
-:root{--bg:#0b1220;--muted:#a7b3d1;--white:#f6f8ff;--stroke:rgba(255,255,255,.10);--shadow:0 10px 30px rgba(0,0,0,.35);--radius:18px;--status-red:#ef4444;--status-orange:#f59e0b;--status-green:#22c55e;--panel-bg:rgba(255,255,255,.05);--panel-border:rgba(255,255,255,.10);--table-head-bg:rgba(255,255,255,.08);--text-main:var(--white);--text-muted:var(--muted);--panel-shadow:0 10px 30px rgba(0,0,0,.35);--table-head-text:var(--white);--brand-blue:#2563EB;}
+:root{--bg:#0b1220;--muted:#a7b3d1;--white:#f6f8ff;--stroke:rgba(255,255,255,.10);--shadow:0 10px 30px rgba(0,0,0,.35);--radius:18px;--status-red:#ef4444;--status-orange:#f59e0b;--status-blue:#3b82f6;--status-violet:#8b5cf6;--status-green:#22c55e;--panel-bg:rgba(255,255,255,.05);--panel-border:rgba(255,255,255,.10);--table-head-bg:rgba(255,255,255,.08);--text-main:var(--white);--text-muted:var(--muted);--panel-shadow:0 10px 30px rgba(0,0,0,.35);--table-head-text:var(--white);--brand-blue:#2563EB;}
 
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
@@ -145,6 +145,8 @@ header{overflow:hidden;position:sticky;top:0;backdrop-filter: blur(10px);backgro
 .dot { width: 10px; height: 10px; border-radius: 999px; }
 .dot.red { background: var(--status-red); }
 .dot.orange { background: var(--status-orange); }
+.dot.blue { background: var(--status-blue); }
+.dot.violet { background: var(--status-violet); }
 .dot.green { background: var(--status-green); }
 
 .langToggle {
@@ -180,6 +182,12 @@ header{overflow:hidden;position:sticky;top:0;backdrop-filter: blur(10px);backgro
   overflow: hidden;
 }
 
+.card.status-red { border-color: rgba(239,68,68,.35); }
+.card.status-orange { border-color: rgba(245,158,11,.45); }
+.card.status-blue { border-color: rgba(59,130,246,.45); }
+.card.status-violet { border-color: rgba(139,92,246,.45); }
+.card.status-green { border-color: rgba(34,197,94,.35); }
+
 .cardTop {
   padding: 12px 14px;
   display: flex;
@@ -201,6 +209,12 @@ header{overflow:hidden;position:sticky;top:0;backdrop-filter: blur(10px);backgro
   background: var(--panel-bg);
   color: var(--text-muted);
 }
+
+.pill.tone-red { background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.35); color: var(--white); }
+.pill.tone-orange { background: rgba(245,158,11,.20); border-color: rgba(245,158,11,.45); color: var(--white); }
+.pill.tone-blue { background: rgba(59,130,246,.20); border-color: rgba(59,130,246,.45); color: var(--white); }
+.pill.tone-violet { background: rgba(139,92,246,.20); border-color: rgba(139,92,246,.45); color: var(--white); }
+.pill.tone-green { background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); color: var(--white); }
 
 .statusArea {
   padding: 16px 14px;
@@ -261,6 +275,8 @@ body.dark .bar { background: #0F172A; }
 .barFill { height: 100%; width: 100%; }
 .barFill.red { background: var(--status-red); }
 .barFill.orange { background: var(--status-orange); }
+.barFill.blue { background: var(--status-blue); }
+.barFill.violet { background: var(--status-violet); }
 .barFill.green { background: var(--status-green); }
 
 .rampCta {
@@ -310,9 +326,11 @@ body.dark .rampUrl { color: #bbf7d0; }
     </div>
     <div class="legend">
       <button id="langToggle" class="langToggle" type="button">English</button>
-      <div class="badge"><span class="dot red"></span><span id="legend-red">Warten</span></div>
+      <div class="badge"><span class="dot red"></span><span id="legend-red">Slot erstellt</span></div>
       <div class="badge"><span class="dot orange"></span><span id="legend-orange">Angemeldet</span></div>
-      <div class="badge"><span class="dot green"></span><span id="legend-green">An die Rampe</span></div>
+      <div class="badge"><span class="dot blue"></span><span id="legend-blue">An die Rampe</span></div>
+      <div class="badge"><span class="dot violet"></span><span id="legend-violet">Warten auf Zollfreigabe</span></div>
+      <div class="badge"><span class="dot green"></span><span id="legend-green">Zollfreigabe erteilt</span></div>
     </div>
   </div>
 </header>
@@ -333,9 +351,11 @@ const I18N = {
   de: {
     title: "Container Status",
     subtitle: "Live-Übersicht",
-    statusRed: "Warten",
+    statusRed: "Slot erstellt",
     statusOrange: "Angemeldet",
-    statusGreen: "An die Rampe",
+    statusBlue: "An die Rampe",
+    statusViolet: "Warten auf Zollfreigabe",
+    statusGreen: "Zollfreigabe erteilt",
     scheduleLabel: "Termin",
     registeredAt: "Angemeldet um",
     registered: "Angemeldet",
@@ -345,9 +365,11 @@ const I18N = {
   en: {
     title: "Container Status",
     subtitle: "Live overview",
-    statusRed: "Waiting",
+    statusRed: "Slot created",
     statusOrange: "Checked in",
-    statusGreen: "Go to ramp",
+    statusBlue: "Go to ramp",
+    statusViolet: "Waiting for customs release",
+    statusGreen: "Customs released",
     scheduleLabel: "Slot",
     registeredAt: "Checked in at",
     registered: "Checked in",
@@ -382,17 +404,19 @@ function isGreenStatus(status){
 
 function statusText(status){
   const normalized = String(status || "").trim().toLowerCase();
-  if (normalized === "customs_released") return "Zollfreigabe erteilt";
-  if (normalized === "waiting_customs") return "Warten auf Zollfreigabe";
-  if (normalized === "to_ramp" || normalized === "green") return t("statusGreen");
+  if (normalized === "customs_released") return t("statusGreen");
+  if (normalized === "waiting_customs") return t("statusViolet");
+  if (normalized === "to_ramp" || normalized === "green") return t("statusBlue");
   if (normalized === "registered" || normalized === "orange") return t("statusOrange");
   return t("statusRed");
 }
 
 function statusTone(status){
   const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "customs_released") return "green";
+  if (normalized === "waiting_customs") return "violet";
+  if (normalized === "to_ramp" || normalized === "green") return "blue";
   if (normalized === "registered" || normalized === "orange") return "orange";
-  if (["to_ramp","waiting_customs","customs_released","green"].includes(normalized)) return "green";
   return "red";
 }
 
@@ -421,14 +445,14 @@ function renderAll(state){
     const reg = registeredTime(c.registeredAt);
 
     const card = document.createElement("div");
-    card.className = "card";
+    card.className = "card status-" + statusTone(c.status);
     card.id = "card-" + i;
 
     card.innerHTML = `
       <div class="cardTop">
         <div class="name">Container ${i}</div>
         <div class="pills">
-          <div class="pill" id="pill-${i}">${statusText(c.status)}</div>
+          <div class="pill tone-${statusTone(c.status)}" id="pill-${i}">${statusText(c.status)}</div>
           <div class="pill" id="time-${i}">⏱ Termin ${time}</div>
         </div>
       </div>
@@ -452,8 +476,11 @@ function renderAll(state){
 function applyOne(id, data){
   const time = timeText(data.time);
   const reg = registeredTime(data.registeredAt);
+  const tone = statusTone(data.status);
 
+  document.getElementById("card-"+id).className = "card status-" + tone;
   document.getElementById("pill-"+id).textContent = statusText(data.status);
+  document.getElementById("pill-"+id).className = "pill tone-" + tone;
   document.getElementById("time-"+id).textContent = "⏱ Termin " + time;
   document.getElementById("plate-"+id).textContent = plateText(data.plate);
   document.getElementById("metaStatus-"+id).textContent = statusText(data.status);
@@ -468,6 +495,8 @@ function applyStaticTranslations(){
   document.getElementById("subtitle").textContent = t("subtitle");
   document.getElementById("legend-red").textContent = t("statusRed");
   document.getElementById("legend-orange").textContent = t("statusOrange");
+  document.getElementById("legend-blue").textContent = t("statusBlue");
+  document.getElementById("legend-violet").textContent = t("statusViolet");
   document.getElementById("legend-green").textContent = t("statusGreen");
   document.getElementById("langToggle").textContent = t("toggle");
 }

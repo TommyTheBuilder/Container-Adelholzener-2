@@ -342,14 +342,24 @@ function t(key){
 }
 
 function isGreenStatus(status){
-  return String(status || "").trim().toLowerCase() === "green";
+  const normalized = String(status || "").trim().toLowerCase();
+  return normalized === "green" || normalized === "to_ramp" || normalized === "waiting_customs" || normalized === "customs_released";
 }
 
 function statusText(status){
   const normalized = String(status || "").trim().toLowerCase();
-  if (normalized === "green") return t("statusGreen");
-  if (normalized === "orange") return t("statusOrange");
+  if (normalized === "customs_released") return "Zollfreigabe erteilt";
+  if (normalized === "waiting_customs") return "Warten auf Zollfreigabe";
+  if (normalized === "to_ramp" || normalized === "green") return t("statusGreen");
+  if (normalized === "registered" || normalized === "orange") return t("statusOrange");
   return t("statusRed");
+}
+
+function statusTone(status){
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "registered" || normalized === "orange") return "orange";
+  if (["to_ramp","waiting_customs","customs_released","green"].includes(normalized)) return "green";
+  return "red";
 }
 
 function timeText(t){
@@ -404,7 +414,7 @@ function renderAll(state){
         </div>
       </div>
       <div class="statusArea">
-        <div class="regBox ${String(c.status || "").trim().toLowerCase() === "orange" ? "is-active" : ""}" id="regBox-${i}">🕒 ${t("registeredAt")}: <span id="reg-${i}">${reg}</span></div>
+        <div class="regBox ${statusTone(c.status) !== "red" ? "is-active" : ""}" id="regBox-${i}">🕒 ${t("registeredAt")}: <span id="reg-${i}">${reg}</span></div>
         <div class="bigPlate" id="plate-${i}">${plateText(c.plate)}</div>
         <div class="metaRow">
           <div id="metaStatus-${i}">${statusText(c.status)}</div>
@@ -412,7 +422,7 @@ function renderAll(state){
           <div id="metaReg-${i}">${t("registered")}: ${reg}</div>
         </div>
         <div id="ramp-${i}" style="width:100%;">${rampLinkHtml(c.status)}</div>
-        <div class="bar"><div class="barFill ${String(c.status || "").trim().toLowerCase()}" id="bar-${i}"></div></div>
+        <div class="bar"><div class="barFill ${statusTone(c.status)}" id="bar-${i}"></div></div>
       </div>
     `;
 
@@ -432,9 +442,7 @@ function applyOne(id, data){
   document.getElementById("metaReg-"+id).textContent = t("registered") + ": " + reg;
   document.getElementById("ramp-"+id).innerHTML = rampLinkHtml(data.status);
 
-  const normalized = String(data.status || "").trim().toLowerCase();
-  const safeStatus = ["red", "orange", "green"].includes(normalized) ? normalized : "red";
-  document.getElementById("bar-"+id).className = "barFill " + safeStatus;
+  document.getElementById("bar-"+id).className = "barFill " + statusTone(data.status);
 }
 
 function applyStaticTranslations(){

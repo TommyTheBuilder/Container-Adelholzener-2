@@ -22,6 +22,8 @@
   --green:#22c55e;
   --orange:#f59e0b;
   --red:#ef4444;
+  --blue:#3b82f6;
+  --violet:#8b5cf6;
   --stroke:rgba(255,255,255,.08);
   --shadow: 0 10px 30px rgba(0,0,0,.35);
   --radius: 18px;
@@ -144,6 +146,8 @@ h1{ margin:0; font-size:20px; letter-spacing:.4px; }
 .dot.red{background:var(--red)}
 .dot.orange{background:var(--orange)}
 .dot.green{background:var(--green)}
+.dot.blue{background:var(--blue)}
+.dot.violet{background:var(--violet)}
 
 .topActions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-left:auto; justify-content:flex-end; }
 .smallBtn{
@@ -184,9 +188,9 @@ main .wrap{ padding-top:18px; padding-bottom:22px; }
   box-shadow: var(--shadow);
   overflow:hidden;
 }
-.card.is-orange{
-  border-color: rgba(245,158,11,.65);
-  box-shadow: 0 0 0 2px rgba(245,158,11,.22), var(--shadow);
+.card.is-highlight{
+  border-color: rgba(59,130,246,.65);
+  box-shadow: 0 0 0 2px rgba(59,130,246,.22), var(--shadow);
 }
 
 .cardTop{
@@ -210,6 +214,8 @@ main .wrap{ padding-top:18px; padding-bottom:22px; }
 .tag-red{ background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.35); color: var(--white); }
 .tag-orange{ background: rgba(245,158,11,.20); border-color: rgba(245,158,11,.45); color: var(--white); }
 .tag-green{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); color: var(--white); }
+.tag-blue{ background: rgba(59,130,246,.20); border-color: rgba(59,130,246,.45); color: var(--white); }
+.tag-violet{ background: rgba(139,92,246,.20); border-color: rgba(139,92,246,.45); color: var(--white); }
 
 .controls{
   padding: 14px;
@@ -270,6 +276,9 @@ input[type="time"]{
 }
 .btn:hover{ background: rgba(255,255,255,.10); }
 .btn.redActive{ background: rgba(239,68,68,.25); border-color: rgba(239,68,68,.35); }
+.btn.orangeActive{ background: rgba(245,158,11,.25); border-color: rgba(245,158,11,.45); }
+.btn.blueActive{ background: rgba(59,130,246,.25); border-color: rgba(59,130,246,.45); }
+.btn.violetActive{ background: rgba(139,92,246,.25); border-color: rgba(139,92,246,.45); }
 .btn.greenActive{ background: rgba(34,197,94,.25); border-color: rgba(34,197,94,.35); }
 .note{ font-size: 12px; color: var(--muted); }
 
@@ -395,6 +404,21 @@ body.dark .btn.redActive{
   color: #EF4444;
   border-color: #EF4444;
 }
+body.dark .btn.orangeActive{
+  background: rgba(245, 158, 11, 0.2);
+  color: #F59E0B;
+  border-color: #F59E0B;
+}
+body.dark .btn.blueActive{
+  background: rgba(59, 130, 246, 0.2);
+  color: #60A5FA;
+  border-color: #60A5FA;
+}
+body.dark .btn.violetActive{
+  background: rgba(139, 92, 246, 0.2);
+  color: #A78BFA;
+  border-color: #A78BFA;
+}
 body.dark .btn.greenActive{
   background: rgba(16, 185, 129, 0.2);
   color: #10B981;
@@ -421,7 +445,7 @@ body.dark .toast{
   <div class="wrap top">
     <div>
       <h1>Admin Steuerung</h1>
-      <div class="sub">Orange = Fahrer angemeldet (inkl. Uhrzeit) · Historie zeigt abgeschlossene Buchungen mit Detailverlauf</div>
+      <div class="sub">Statusfolge: Slot erstellt → Angemeldet → An die Rampe → Warten auf Zollfreigabe → Zollfreigabe erteilt · Historie zeigt abgeschlossene Buchungen mit Detailverlauf</div>
     </div>
 
     <div class="topActions">
@@ -429,9 +453,11 @@ body.dark .toast{
       <a class="smallBtn linkBtn" href="https://test.paletten-ms.de/public/dashboard.html">Zum Dashboard</a>
       <button class="smallBtn" id="resetAllBtn">Alle zurücksetzen</button>
       <div class="legend">
-        <div class="badge"><span class="dot red"></span>Warten</div>
+        <div class="badge"><span class="dot red"></span>Slot erstellt</div>
         <div class="badge"><span class="dot orange"></span>Angemeldet</div>
-        <div class="badge"><span class="dot green"></span>An die Rampe</div>
+        <div class="badge"><span class="dot blue"></span>An die Rampe</div>
+        <div class="badge"><span class="dot violet"></span>Warten auf Zollfreigabe</div>
+        <div class="badge"><span class="dot green"></span>Zollfreigabe erteilt</div>
       </div>
     </div>
   </div>
@@ -509,18 +535,32 @@ const session = params.get("session") || "";
 const storedTheme = localStorage.getItem("admin-theme") || (document.documentElement.classList.contains("theme-dark") ? "dark" : "light");
 applyTheme(storedTheme);
 
+function normalizedStatus(status){
+  if (status === "green") return "to_ramp";
+  if (status === "orange") return "registered";
+  if (status === "red") return "slot_created";
+  return status;
+}
+
 function statusText(status){
-  if (status === "green") return "An die Rampe";
-  if (status === "orange") return "Angemeldet";
-  return "Warten";
+  const normalized = normalizedStatus(status);
+  if (normalized === "customs_released") return "Zollfreigabe erteilt";
+  if (normalized === "waiting_customs") return "Warten auf Zollfreigabe";
+  if (normalized === "to_ramp") return "An die Rampe";
+  if (normalized === "registered") return "Angemeldet";
+  return "Slot erstellt";
 }
 function tagClass(status){
-  if (status === "green") return "tag-green";
-  if (status === "orange") return "tag-orange";
+  const normalized = normalizedStatus(status);
+  if (normalized === "customs_released") return "tag-green";
+  if (normalized === "waiting_customs") return "tag-violet";
+  if (normalized === "to_ramp") return "tag-blue";
+  if (normalized === "registered") return "tag-orange";
   return "tag-red";
 }
 function cardClass(status){
-  if (status === "orange") return "is-orange";
+  const normalized = normalizedStatus(status);
+  if (normalized !== "slot_created") return "is-highlight";
   return "";
 }
 function registeredTime(iso){
@@ -556,7 +596,7 @@ function renderAll(){
       </div>
 
       <div class="controls">
-        <div class="regBox ${c.status === "orange" ? "is-active" : ""}" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
+        <div class="regBox ${normalizedStatus(c.status) !== "slot_created" ? "is-active" : ""}" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
 
         <div>
           <label>Kennzeichen (vom Fahrer)</label>
@@ -570,9 +610,16 @@ function renderAll(){
           <div class="note">Änderung wird sofort gespeichert.</div>
         </div>
 
+        <div class="row" style="flex-wrap:wrap;">
+          <button class="btn ${normalizedStatus(c.status)==="slot_created" ? "redActive" : ""}" id="btn-slot-${i}">1 · Slot erstellt</button>
+          <button class="btn ${normalizedStatus(c.status)==="registered" ? "orangeActive" : ""}" id="btn-registered-${i}">2 · Angemeldet</button>
+        </div>
+        <div class="row" style="flex-wrap:wrap;">
+          <button class="btn ${normalizedStatus(c.status)==="to_ramp" ? "blueActive" : ""}" id="btn-ramp-${i}">3 · An die Rampe</button>
+          <button class="btn ${normalizedStatus(c.status)==="waiting_customs" ? "violetActive" : ""}" id="btn-customs-wait-${i}">4 · Warten auf Zollfreigabe</button>
+        </div>
         <div class="row">
-          <button class="btn ${c.status==="red" ? "redActive" : ""}" id="btnR-${i}">Rot</button>
-          <button class="btn ${c.status==="green" ? "greenActive" : ""}" id="btnG-${i}">Grün</button>
+          <button class="btn ${normalizedStatus(c.status)==="customs_released" ? "greenActive" : ""}" id="btn-customs-ok-${i}">5 · Zollfreigabe erteilt</button>
         </div>
 
 
@@ -591,12 +638,21 @@ function renderAll(){
       }, 200);
     });
 
-    // Status Buttons (nur rot/grün)
-    document.getElementById("btnR-"+i).addEventListener("click", () => {
-      socket.emit("adminSetStatus", { id: i, status: "red" });
+    // Status Buttons (1 bis 5)
+    document.getElementById("btn-slot-"+i).addEventListener("click", () => {
+      socket.emit("adminSetStatus", { id: i, status: "slot_created" });
     });
-    document.getElementById("btnG-"+i).addEventListener("click", () => {
-      socket.emit("adminSetStatus", { id: i, status: "green" });
+    document.getElementById("btn-registered-"+i).addEventListener("click", () => {
+      socket.emit("adminSetStatus", { id: i, status: "registered" });
+    });
+    document.getElementById("btn-ramp-"+i).addEventListener("click", () => {
+      socket.emit("adminSetStatus", { id: i, status: "to_ramp" });
+    });
+    document.getElementById("btn-customs-wait-"+i).addEventListener("click", () => {
+      socket.emit("adminSetStatus", { id: i, status: "waiting_customs" });
+    });
+    document.getElementById("btn-customs-ok-"+i).addEventListener("click", () => {
+      socket.emit("adminSetStatus", { id: i, status: "customs_released" });
     });
 
     // Container Reset
@@ -627,16 +683,22 @@ function applyOne(id, data){
   if (reg) reg.textContent = registeredTime(data.registeredAt);
 
   const regBox = document.getElementById("regBox-"+id);
-  if (regBox) regBox.classList.toggle("is-active", data.status === "orange");
+  if (regBox) regBox.classList.toggle("is-active", normalizedStatus(data.status) !== "slot_created");
 
   const t = document.getElementById("time-"+id);
   if (t && document.activeElement !== t) t.value = data.time || "";
 
-  const btnR = document.getElementById("btnR-"+id);
-  const btnG = document.getElementById("btnG-"+id);
-  if (btnR && btnG){
-    btnR.classList.toggle("redActive", data.status === "red");
-    btnG.classList.toggle("greenActive", data.status === "green");
+  const btnSlot = document.getElementById("btn-slot-"+id);
+  const btnRegistered = document.getElementById("btn-registered-"+id);
+  const btnRamp = document.getElementById("btn-ramp-"+id);
+  const btnCustomsWait = document.getElementById("btn-customs-wait-"+id);
+  const btnCustomsOk = document.getElementById("btn-customs-ok-"+id);
+  if (btnSlot && btnRegistered && btnRamp && btnCustomsWait && btnCustomsOk){
+    btnSlot.classList.toggle("redActive", normalizedStatus(data.status) === "slot_created");
+    btnRegistered.classList.toggle("orangeActive", normalizedStatus(data.status) === "registered");
+    btnRamp.classList.toggle("blueActive", normalizedStatus(data.status) === "to_ramp");
+    btnCustomsWait.classList.toggle("violetActive", normalizedStatus(data.status) === "waiting_customs");
+    btnCustomsOk.classList.toggle("greenActive", normalizedStatus(data.status) === "customs_released");
   }
 
 }
@@ -673,7 +735,7 @@ function renderTimeline(entries){
   const lines = entries.map((e) => {
     const label = TIMELINE_LABELS[e.type] || e.type;
     const detail = [];
-    if (e.details?.from || e.details?.to) detail.push(`${e.details.from || "?"} → ${e.details.to || "?"}`);
+    if (e.details?.from || e.details?.to) detail.push(`${statusText(e.details.from) || "?"} → ${statusText(e.details.to) || "?"}`);
     if (e.details?.timeSlot) detail.push(`Termin: ${e.details.timeSlot}`);
     return `<li><b>${fmtDateTime(e.at)}</b> · ${label}${detail.length ? ` <span class="muted">(${detail.join(" · ")})</span>` : ""}</li>`;
   }).join("");

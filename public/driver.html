@@ -199,6 +199,10 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
 .slot.disabled{ opacity: .55; cursor: not-allowed; }
 .slot.selected{ outline: 3px solid rgba(255,255,255,.35); outline-offset: 2px; }
 
+.slot.tone-red{ border-color: rgba(239,68,68,.35); }
+.slot.tone-orange{ border-color: rgba(245,158,11,.45); }
+.slot.tone-green{ border-color: rgba(34,197,94,.45); }
+
 .slotTop{
   padding: 10px 12px;
   display:flex;
@@ -245,6 +249,9 @@ main .wrap{ padding-top: 16px; padding-bottom: 22px; }
   font-size: 12px;
 }
 .statusText{ font-weight: 900; color: var(--white); }
+.statusText.tone-red{ color: var(--red); }
+.statusText.tone-orange{ color: var(--orange); }
+.statusText.tone-green{ color: var(--green); }
 
 .regRow{
   display:flex;
@@ -523,8 +530,9 @@ function renderAll(){
     else if (!isFree(c)) headNote = t("occupied");
     else headNote = t("free");
 
+    const tone = statusTone(c.status);
     const slot = document.createElement("div");
-    slot.className = "slot" + (disabled ? " disabled" : "") + (selectedId === i ? " selected" : "");
+    slot.className = "slot tone-" + tone + (disabled ? " disabled" : "") + (selectedId === i ? " selected" : "");
     slot.id = "slot-" + i;
 
     slot.innerHTML = `
@@ -538,7 +546,7 @@ function renderAll(){
 
         <div class="statusRow">
           <div>${t("status")}</div>
-          <div class="statusText">${statusText(c.status)}</div>
+          <div class="statusText tone-${tone}">${statusText(c.status)}</div>
         </div>
 
         <div class="regRow">

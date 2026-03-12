@@ -8,6 +8,10 @@
 <script>
   const __design = new URLSearchParams(location.search).get("design");
   document.documentElement.dataset.design = __design === "2" ? "2" : "1";
+  const savedTheme = localStorage.getItem("admin-theme");
+  if (savedTheme === "dark") {
+    document.documentElement.classList.add("theme-dark");
+  }
 </script>
 
 <style>
@@ -153,6 +157,13 @@ h1{ margin:0; font-size:20px; letter-spacing:.4px; }
   font-weight: 900;
 }
 .smallBtn:hover{ background: rgba(255,255,255,.10); }
+.themeToggle{
+  min-width: 46px;
+  display:inline-flex;
+  justify-content:center;
+  align-items:center;
+  gap:6px;
+}
 .linkBtn{ text-decoration:none; display:inline-flex; align-items:center; }
 
 main .wrap{ padding-top:18px; padding-bottom:22px; }
@@ -334,6 +345,74 @@ select{
 }
 .table th{ color: var(--muted); font-weight: 900; }
 .muted{ color: var(--muted); }
+
+body.dark,
+html[data-design="2"] body.dark{
+  background: #121826;
+  color: #F8FAFC;
+}
+body.dark header,
+html.theme-dark header,
+html[data-design="2"].theme-dark header{
+  background: rgba(15, 23, 42, 0.85);
+  border-bottom-color: #334155;
+}
+body.dark .card,
+body.dark .panel,
+body.dark .block{
+  background: #1E2536;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+body.dark .cardTop,
+body.dark .panelHead,
+body.dark .table th,
+body.dark .table td{
+  border-bottom: 1px solid #334155;
+}
+body.dark .table th{
+  background: #0F172A;
+  color: #94A3B8;
+}
+body.dark .table td{
+  background: #1E2536;
+}
+body.dark .smallBtn,
+body.dark .btn,
+body.dark .linkBtn{
+  background: #1E2536;
+  color: #fff;
+  border: 1px solid #334155;
+}
+body.dark .smallBtn:hover,
+body.dark .btn:hover,
+body.dark .linkBtn:hover{
+  background: #273247;
+}
+body.dark .btn.redActive{
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+  border-color: #EF4444;
+}
+body.dark .btn.greenActive{
+  background: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+  border-color: #10B981;
+}
+body.dark input[type="time"],
+body.dark select,
+body.dark .readonly,
+body.dark .regBox{
+  background: #0F172A;
+  border: 1px solid #334155;
+  color: #F8FAFC;
+}
+body.dark .statusTag,
+body.dark .badge,
+body.dark .toast{
+  border-color: #334155;
+}
 </style>
 </head>
 
@@ -346,6 +425,7 @@ select{
     </div>
 
     <div class="topActions">
+      <button class="smallBtn themeToggle" id="themeToggle" title="Dark Mode umschalten" aria-label="Dark Mode umschalten">🌙</button>
       <a class="smallBtn linkBtn" href="https://test.paletten-ms.de/public/dashboard.html">Zum Dashboard</a>
       <button class="smallBtn" id="resetAllBtn">Alle zurücksetzen</button>
       <div class="legend">
@@ -409,9 +489,25 @@ const socket = io();
 let current = {};
 let isAuthed = false;
 
+function applyTheme(theme){
+  const isDark = theme === "dark";
+  document.body.classList.toggle("dark", isDark);
+  document.documentElement.classList.toggle("theme-dark", isDark);
+  localStorage.setItem("admin-theme", isDark ? "dark" : "light");
+
+  const themeBtn = document.getElementById("themeToggle");
+  if (themeBtn) {
+    themeBtn.textContent = isDark ? "☀️" : "🌙";
+    themeBtn.title = isDark ? "Light Mode aktivieren" : "Dark Mode aktivieren";
+    themeBtn.setAttribute("aria-label", themeBtn.title);
+  }
+}
+
 const params = new URLSearchParams(location.search);
 const key = params.get("key") || "";
 const session = params.get("session") || "";
+const storedTheme = localStorage.getItem("admin-theme") || (document.documentElement.classList.contains("theme-dark") ? "dark" : "light");
+applyTheme(storedTheme);
 
 function statusText(status){
   if (status === "green") return "An die Rampe";
@@ -714,6 +810,11 @@ document.getElementById("histCSV").addEventListener("click", () => {
 document.getElementById("histClear").addEventListener("click", () => {
   if (!isAuthed) return;
   if (confirm("Historie wirklich löschen?")) socket.emit("adminClearHistory");
+});
+
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const nextTheme = document.body.classList.contains("dark") ? "light" : "dark";
+  applyTheme(nextTheme);
 });
 </script>
 </body>

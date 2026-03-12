@@ -41,10 +41,27 @@ header{
   position: sticky;
   top: 0;
   width: 100%;
-  background-color: var(--header-bg);
+  background-color: #1e3a8a;
   border-bottom: 0;
   z-index: 100;
   box-shadow: 0 2px 10px rgba(15, 23, 42, .35);
+}
+
+header h1,
+header .sub,
+header .legend,
+header .badge,
+header .smallBtn{
+  color: #F8FAFC;
+}
+
+header .sub{
+  color: #F8FAFC;
+}
+
+header .badge,
+header .smallBtn{
+  border-color: rgba(248,250,252,.5);
 }
 
 main{ padding-top: 12px; }
@@ -339,7 +356,7 @@ html[data-design="2"] body.dark{
 body.dark header,
 html.theme-dark header,
 html[data-design="2"].theme-dark header{
-  background: rgba(15, 23, 42, 0.85);
+  background: #1e3a8a;
   border-bottom-color: #334155;
 }
 body.dark .card,

@@ -8,8 +8,6 @@
 <script>
   const __design = new URLSearchParams(location.search).get("design");
   document.documentElement.dataset.design = __design === "2" ? "2" : "1";
-  const savedTheme = localStorage.getItem("driver-theme");
-  if (savedTheme === "dark") document.documentElement.classList.add("theme-dark");
 </script>
 
 <style>
@@ -134,17 +132,6 @@ html[data-design="2"] .top{
   margin: 0 auto;
   padding: 14px 16px;
 }
-
-.globalHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:8px;}
-.logoLink{display:inline-flex;align-items:center;}
-.logoImage{height:38px;width:auto;object-fit:contain;}
-.settingsWrap{position:relative;}
-.iconBtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.08);color:var(--white);cursor:pointer;font-size:18px;}
-.settingsMenu{position:absolute;right:0;top:calc(100% + 8px);min-width:240px;border-radius:12px;border:1px solid var(--stroke);background:rgba(11,18,32,.96);box-shadow:var(--shadow);overflow:hidden;display:none;z-index:40;}
-.settingsMenu.open{display:block;}
-.menuItem{width:100%;display:block;padding:11px 14px;text-align:left;text-decoration:none;border:0;margin:0;background:transparent;color:var(--white);cursor:pointer;border-bottom:1px solid var(--stroke);}
-.menuItem:last-child{border-bottom:0;}
-
 .top{
   display:flex;
   align-items:flex-end;
@@ -342,23 +329,6 @@ input{
 
 <body>
 <header>
-  <div class="wrap globalHeader">
-    <a href="/viewer.html" class="logoLink" aria-label="Container Dashboard">
-      <img src="/logo.png" alt="Logo" class="logoImage" />
-    </a>
-    <div class="settingsWrap">
-      <button class="iconBtn" id="settingsToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Einstellungen">⚙️</button>
-      <div class="settingsMenu" id="settingsMenu" role="menu">
-        <a class="menuItem" href="/admin.html">Admin Steuerung</a>
-        <a class="menuItem" href="/driver.html">Fahrer Anmeldung</a>
-        <a class="menuItem" href="/viewer.html">Live-Übersicht</a>
-        <a class="menuItem" href="https://test.paletten-ms.de/password.html">Passwort ändern</a>
-        <button class="menuItem" type="button" id="darkmodeToggle">Darkmode umschalten</button>
-        <a class="menuItem" href="https://test.paletten-ms.de/dashboard.html">Modul-Dashboard</a>
-        <a class="menuItem" href="https://test.paletten-ms.de/logout.html">Logout</a>
-      </div>
-    </div>
-  </div>
   <div class="wrap top">
     <div>
       <h1 id="title">Fahrer Anmeldung</h1>
@@ -521,22 +491,6 @@ function clearMsg(){
   msgEl.textContent = "";
 }
 
-
-function applyTheme(theme){
-  const isDark = theme === "dark";
-  document.body.classList.toggle("dark", isDark);
-  document.documentElement.classList.toggle("theme-dark", isDark);
-  localStorage.setItem("driver-theme", isDark ? "dark" : "light");
-}
-
-function toggleSettingsMenu(force){
-  const menu = document.getElementById("settingsMenu");
-  const btn = document.getElementById("settingsToggle");
-  const shouldOpen = typeof force === "boolean" ? force : !menu.classList.contains("open");
-  menu.classList.toggle("open", shouldOpen);
-  btn.setAttribute("aria-expanded", String(shouldOpen));
-}
-
 function focusPlateInput(){
   if (!plateEl) return;
   plateEl.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -686,29 +640,6 @@ btnEl.addEventListener("click", () => {
   btnEl.disabled = true;
   socket.emit("driverRegister", { id: selectedId, plate });
 });
-
-
-document.getElementById("settingsToggle").addEventListener("click", (event) => {
-  event.stopPropagation();
-  toggleSettingsMenu();
-});
-
-document.getElementById("darkmodeToggle").addEventListener("click", () => {
-  const nextTheme = document.body.classList.contains("dark") ? "light" : "dark";
-  applyTheme(nextTheme);
-  toggleSettingsMenu(false);
-});
-
-document.addEventListener("click", (event) => {
-  const wrap = document.querySelector(".settingsWrap");
-  if (wrap && !wrap.contains(event.target)) toggleSettingsMenu(false);
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") toggleSettingsMenu(false);
-});
-
-applyTheme(localStorage.getItem("driver-theme") || (document.documentElement.classList.contains("theme-dark") ? "dark" : "light"));
 
 applyStaticTranslations();
 

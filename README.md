@@ -61,7 +61,7 @@ signiertem Session-Token übernehmen.
 
 ### Serverseite konfigurieren
 - `SHARED_AUTH_SECRET`: gemeinsames Secret zwischen Dashboard und Container-App
-- `ADMIN_ROLE` (optional): Rollenname, der als Admin gilt (Default: `container_admin`)
+- `ADMIN_ROLE` (optional): Rollenname, der als Admin gilt (Default: `ContainerAnmeldung`)
 
 ### Token-Format (`session` Query-Parameter)
 Der Parameter `session` hat das Format:
@@ -71,7 +71,7 @@ Empfohlenes Payload-JSON:
 ```json
 {
   "user": "max.mustermann",
-  "roles": ["container_admin"],
+  "roles": ["ContainerAnmeldung"],
   "exp": 1735689600
 }
 ```
@@ -79,8 +79,41 @@ Empfohlenes Payload-JSON:
 - `exp` ist ein Unix-Timestamp (Sekunden) und muss in der Zukunft liegen.
 - Enthält `roles` nicht die `ADMIN_ROLE`, wird der Zugriff abgelehnt.
 
+
+### Berechtigung im Login-/Dashboard-Projekt anlegen
+Lege im zentralen Login-/Rechtesystem die Berechtigung **`ContainerAnmeldung`** an und ordne sie
+den Benutzern/Gruppen zu, die Zugriff auf `admin.html` erhalten sollen.
+
+Nur wenn das Session-Token die Rolle `ContainerAnmeldung` enthält, wird der Zugriff erlaubt.
+
 ### Link vom Dashboard zur Container-Adminseite
 Beispiel:
 `https://container.paletten-ms.de/admin.html?session=<TOKEN>`
 
 Alternativ funktioniert weiterhin `?key=ADMIN_KEY` für Legacy-Setups.
+
+
+### Codex-Befehl für das andere Projekt
+Nutze im Login-/Dashboard-Projekt diesen Prompt für Codex (1:1 kopieren):
+
+```text
+Bitte implementiere eine SSO-Weitergabe zur Container-App mit signiertem Session-Token.
+
+Ziel:
+- Beim Login auf test.paletten-ms.de/login.html und Weiterleitung auf dashboard.html soll beim Link zur Container-Adminseite ein `session` Query-Parameter erzeugt werden.
+- Die Container-App akzeptiert nur Benutzer mit der Berechtigung `ContainerAnmeldung`.
+
+Anforderungen:
+1) Lege (falls noch nicht vorhanden) die Berechtigung `ContainerAnmeldung` im Rechtesystem an und weise sie den berechtigten Nutzern/Gruppen zu.
+2) Erzeuge ein JSON-Payload mit:
+   - `user`: Benutzername
+   - `roles`: Array aller Rechte/Rollen
+   - `exp`: aktueller Unix-Zeitstempel + 300 Sekunden
+3) Signiere `base64url(payload)` per HMAC-SHA256 mit dem Shared Secret (gleich wie `SHARED_AUTH_SECRET` der Container-App).
+4) Tokenformat: `base64url(payload).base64url(signature)`
+5) Verlinke auf:
+   `https://container.paletten-ms.de/admin.html?session=<TOKEN>`
+6) Achte darauf, dass `roles` den Eintrag `ContainerAnmeldung` enthält; sonst keinen Admin-Link anzeigen.
+
+Bitte liefere den finalen Code inkl. kurzer Security-Hinweise (TTL, Secret-Handling, kein Logging des Tokens).
+```

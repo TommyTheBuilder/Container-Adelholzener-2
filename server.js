@@ -14,7 +14,7 @@ const ADMIN_KEY = process.env.ADMIN_KEY || "333";
 const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
 const SHARED_AUTH_SECRET = String(process.env.SHARED_AUTH_SECRET || "").trim();
-const ADMIN_ROLE = String(process.env.ADMIN_ROLE || "container_admin").trim();
+const ADMIN_ROLE = String(process.env.ADMIN_ROLE || "ContainerAnmeldung").trim();
 
 const rawDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
 const hasDatabaseUrl = rawDatabaseUrl.length > 0;

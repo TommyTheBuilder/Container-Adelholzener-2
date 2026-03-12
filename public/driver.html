@@ -12,18 +12,20 @@
 
 <style>
 :root{
-  --bg:#0b1220;
-  --muted:#a7b3d1;
-  --white:#f6f8ff;
-  --stroke:rgba(255,255,255,.10);
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --bg:#F3F4F6;
+  --muted:#475569;
+  --white:#111827;
+  --stroke:#E2E8F0;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --radius: 18px;
+  --header-bg: #0f2f67;
+  --brand-blue: #2563EB;
 
   --red:#ef4444;
   --orange:#f59e0b;
   --green:#22c55e;
-  --card: rgba(255,255,255,.05);
-  --card2: rgba(255,255,255,.02);
+  --card: #ffffff;
+  --card2: #ffffff;
 }
 *{box-sizing:border-box}
 body{
@@ -31,100 +33,43 @@ body{
   min-height: 100vh;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
   color:var(--white);
-  background:
-    radial-gradient(1200px 600px at 20% 0%, rgba(59,130,246,.12), transparent 55%),
-    radial-gradient(900px 600px at 80% 20%, rgba(245,158,11,.10), transparent 55%),
-    var(--bg);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  background: var(--bg);
 }
 header{
-  overflow:hidden;
   position: sticky;
   top: 0;
-  backdrop-filter: blur(10px);
-  background: rgba(11,18,32,.70);
-  border-bottom: 1px solid var(--stroke);
-  z-index: 10;
+  width: 100%;
+  background: var(--header-bg);
+  border-bottom: 0;
+  z-index: 20;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, .35);
 }
 
-header::after{
-  content:"";
-  position:absolute;
-  top:6px;
-  right:18px;
-  bottom:6px;
-  width:140px;
-  background: url("/logo.png") no-repeat right center / contain;
-  opacity:.16;
-  pointer-events:none;
-}
-header .wrap{ position: relative; z-index: 1; }
-.top{ padding-right: 152px; }
+.headerBar { width: 100%; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:10px 20px; }
+.logoLink { display:inline-flex; align-items:center; }
+.logoImage { height:42px; width:auto; object-fit:contain; }
+.headerActions { display:flex; align-items:center; gap:10px; margin-left:auto; }
+.iconBtn,.navBtn { border:1px solid rgba(255,255,255,.3); background:rgba(255,255,255,.14); color:#fff; border-radius:10px; cursor:pointer; font-weight:700; }
+.iconBtn { width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; font-size:18px; }
+.navBtn { height:40px; padding:0 14px; text-decoration:none; display:inline-flex; align-items:center; }
+.navBtn.primary { background:var(--brand-blue); border-color:var(--brand-blue); }
 
-html[data-design="2"] body{
-  background: radial-gradient(1200px 600px at 80% 0%, rgba(14,165,233,.16), transparent 55%),
-              radial-gradient(900px 600px at 20% 20%, rgba(245,158,11,.12), transparent 55%),
-              var(--bg);
-}
-html[data-design="2"] header{
-  background: linear-gradient(90deg, rgba(11,18,32,.88), rgba(11,18,32,.58));
-  border-bottom-color: rgba(255,255,255,.16);
-}
-html[data-design="2"] header::after{
-  left:18px;
-  right:auto;
-  width:168px;
-  background: url("/logo.png") no-repeat left center / contain;
-  opacity:.24;
-  filter: drop-shadow(0 0 12px rgba(255,255,255,.2));
-}
-html[data-design="2"] .top{
-  padding-right: 0;
-  padding-left: 180px;
-}
+.settingsWrap { position: relative; }
+.settingsMenu { position:absolute; right:0; top:calc(100% + 8px); min-width:240px; border-radius:12px; overflow:hidden; box-shadow:0 10px 24px rgba(15,23,42,.25); display:none; z-index:30; background:#F1F5F9; }
+.settingsMenu.open { display:block; }
+.menuItem { width:100%; display:block; text-align:left; border:0; margin:0; padding:11px 14px; font-size:14px; cursor:pointer; }
+.menuItem.darkSection { background:#1F2937; color:#fff; font-weight:700; }
+.menuItem.lightSection { background:#F1F5F9; color:#0F172A; border-bottom:1px solid #E2E8F0; }
+.menuItemLink { text-decoration:none; }
 
-@media (max-width: 900px){
-  header::after{
-    width: 108px;
-    opacity: .12;
-  }
-  .top,
-  html[data-design="2"] .top{
-    padding-left: 0;
-    padding-right: 0;
-  }
-}
-
-@media (max-width: 640px){
-  header::after{ display:none; }
-}
-
-@media (prefers-color-scheme: light){
-  :root{
-    --bg:#eef3fb;
-    --card:#ffffff;
-    --muted:#3d4c68;
-    --white:#10213b;
-    --stroke:rgba(16,33,59,.18);
-  }
-  body{
-    background: radial-gradient(1100px 520px at 20% 0%, rgba(59,130,246,.20), transparent 60%),
-                radial-gradient(900px 600px at 80% 20%, rgba(16,185,129,.16), transparent 60%),
-                var(--bg);
-  }
-  html[data-design="2"] body{
-    background: radial-gradient(1200px 600px at 80% 0%, rgba(14,165,233,.20), transparent 55%),
-                radial-gradient(900px 600px at 20% 20%, rgba(245,158,11,.18), transparent 55%),
-                var(--bg);
-  }
-  header{
-    background: rgba(255,255,255,.82);
-  }
-  html[data-design="2"] header{
-    background: linear-gradient(90deg, rgba(255,255,255,.92), rgba(255,255,255,.72));
-    border-bottom-color: rgba(16,33,59,.20);
-  }
+body.dark {
+  --bg:#0b1220;
+  --muted:#a7b3d1;
+  --white:#f6f8ff;
+  --stroke:rgba(255,255,255,.10);
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --card: rgba(255,255,255,.05);
+  --card2: rgba(255,255,255,.02);
 }
 
 .wrap{
@@ -139,14 +84,14 @@ html[data-design="2"] .top{
   gap: 12px;
   flex-wrap: wrap;
 }
-h1{ margin:0; font-size: 20px; letter-spacing:.3px; }
-.sub{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
+h1{ margin:0; font-size: 20px; letter-spacing:.3px; color: #fff; }
+.sub{ margin:6px 0 0; color: rgba(255,255,255,.85); font-size: 13px; }
 
 .legend{
   display:flex;
   gap: 10px;
   flex-wrap: wrap;
-  color: var(--muted);
+  color: #fff;
   font-size: 12px;
 }
 .langToggle{
@@ -324,11 +269,38 @@ input{
   font-size: 12px;
 }
 .selectedInfo b{ color: var(--white); }
+
+body.dark h1,
+body.dark .legend { color: #fff; }
+
+body.dark .sub { color: rgba(255,255,255,.85); }
 </style>
 </head>
 
 <body>
 <header>
+  <div class="headerBar">
+    <a href="/viewer.html" class="logoLink" aria-label="ICS Home">
+      <img src="/logo.png" alt="ICS Logo" class="logoImage" />
+    </a>
+
+    <div class="headerActions">
+      <button class="iconBtn" type="button" aria-label="Benachrichtigungen">🔔</button>
+      <a class="navBtn primary" href="/driver.html">Frachtführerstammdaten</a>
+      <div class="settingsWrap">
+        <button class="iconBtn" id="settingsToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Einstellungen">⚙️</button>
+        <div class="settingsMenu" id="settingsMenu" role="menu">
+          <a class="menuItem menuItemLink darkSection" href="/admin.html">Admin</a>
+          <button class="menuItem lightSection" type="button" id="changePasswordBtn">Passwort ändern</button>
+          <a class="menuItem menuItemLink lightSection" href="/driver.html">Container Anmeldung</a>
+          <button class="menuItem lightSection" type="button" id="darkmodeToggle">Darkmode umschalten</button>
+          <a class="menuItem menuItemLink lightSection" id="dashboardLink" href="/dashboard.html">Modul-Dashboard</a>
+          <button class="menuItem darkSection" type="button" id="logoutBtn">Logout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="wrap top">
     <div>
       <h1 id="title">Fahrer Anmeldung</h1>
@@ -368,6 +340,7 @@ input{
 
 <script>
 const socket = io();
+const DASHBOARD_URL = "/dashboard.html";
 let state = null;
 let selectedId = null;
 
@@ -377,6 +350,20 @@ const msgEl = document.getElementById("msg");
 const btnEl = document.getElementById("sendBtn");
 const selInfoEl = document.getElementById("selInfo");
 let currentLang = localStorage.getItem("driverLang") || "de";
+
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.body.classList.toggle("dark", isDark);
+  localStorage.setItem("driver-theme", isDark ? "dark" : "light");
+}
+
+function toggleSettingsMenu(force) {
+  const menu = document.getElementById("settingsMenu");
+  const btn = document.getElementById("settingsToggle");
+  const shouldOpen = typeof force === "boolean" ? force : !menu.classList.contains("open");
+  menu.classList.toggle("open", shouldOpen);
+  btn.setAttribute("aria-expanded", String(shouldOpen));
+}
 
 const I18N = {
   de: {
@@ -617,6 +604,49 @@ document.getElementById("langToggle").addEventListener("click", () => {
   }
 });
 
+document.getElementById("settingsToggle").addEventListener("click", (event) => {
+  event.stopPropagation();
+  toggleSettingsMenu();
+});
+
+document.getElementById("darkmodeToggle").addEventListener("click", () => {
+  const nextTheme = document.body.classList.contains("dark") ? "light" : "dark";
+  applyTheme(nextTheme);
+  toggleSettingsMenu(false);
+});
+
+document.getElementById("changePasswordBtn").addEventListener("click", () => {
+  toggleSettingsMenu(false);
+  window.location.href = "/change-password.html";
+});
+
+document.getElementById("dashboardLink").addEventListener("click", (event) => {
+  event.preventDefault();
+  toggleSettingsMenu(false);
+  window.location.href = DASHBOARD_URL;
+});
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  try {
+    await fetch("/logout", { method: "POST", credentials: "include" });
+  } catch (error) {
+    console.warn("Logout endpoint nicht erreichbar:", error);
+  }
+  localStorage.removeItem("driver-theme");
+  localStorage.removeItem("driverLang");
+  toggleSettingsMenu(false);
+  window.location.href = "/";
+});
+
+document.addEventListener("click", (event) => {
+  const wrap = document.querySelector(".settingsWrap");
+  if (!wrap.contains(event.target)) toggleSettingsMenu(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") toggleSettingsMenu(false);
+});
+
 btnEl.addEventListener("click", () => {
   clearMsg();
 
@@ -642,6 +672,7 @@ btnEl.addEventListener("click", () => {
 });
 
 applyStaticTranslations();
+applyTheme(localStorage.getItem("driver-theme") || "light");
 
 socket.on("driverRegisterResult", ({ ok, message }) => {
   btnEl.disabled = false;

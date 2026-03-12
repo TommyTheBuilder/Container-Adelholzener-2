@@ -361,7 +361,7 @@ select{
   <div class="wrap">
     <div id="authBlock" class="block" style="display:none">
       <div style="font-weight:950; font-size:16px;">Kein Admin-Zugriff</div>
-      <div class="note">Öffne mit <b>?key=DEIN_ADMIN_KEY</b> oder setze am Server <b>ADMIN_KEY</b>.</div>
+      <div class="note">Öffne mit <b>?key=DEIN_ADMIN_KEY</b> oder übergib ein signiertes Session-Token via <b>?session=...</b>.</div>
     </div>
 
     <div id="grid" class="grid" style="display:none"></div>
@@ -411,6 +411,7 @@ let isAuthed = false;
 
 const params = new URLSearchParams(location.search);
 const key = params.get("key") || "";
+const session = params.get("session") || "";
 
 function statusText(status){
   if (status === "green") return "An die Rampe";
@@ -668,10 +669,10 @@ document.getElementById("histBody").addEventListener("click", (event) => {
 // ===== Auth + Init =====
 socket.on("init", (state) => {
   current = state;
-  socket.emit("adminAuth", { key });
+  socket.emit("adminAuth", { key, session });
 });
 
-socket.on("adminAuthResult", ({ ok }) => {
+socket.on("adminAuthResult", ({ ok, user }) => {
   isAuthed = !!ok;
   document.getElementById("authBlock").style.display = isAuthed ? "none" : "block";
   document.getElementById("grid").style.display = isAuthed ? "grid" : "none";
@@ -680,7 +681,7 @@ socket.on("adminAuthResult", ({ ok }) => {
   if (isAuthed){
     renderAll();
     refreshHistory();
-    showToast("Admin aktiviert");
+    showToast(user ? `Admin aktiviert (${user})` : "Admin aktiviert");
   } else {
     showToast("Kein Admin-Zugriff");
   }
@@ -704,7 +705,10 @@ document.getElementById("histRefresh").addEventListener("click", () => {
 
 document.getElementById("histCSV").addEventListener("click", () => {
   if (!isAuthed) return;
-  window.location.href = "/admin-history.csv?key=" + encodeURIComponent(key);
+  const csvParams = new URLSearchParams();
+  if (key) csvParams.set("key", key);
+  if (session) csvParams.set("session", session);
+  window.location.href = "/admin-history.csv?" + csvParams.toString();
 });
 
 document.getElementById("histClear").addEventListener("click", () => {

@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const { Pool } = require("pg");
+const crypto = require("crypto");
 
 const app = express();
 const server = http.createServer(app);
@@ -12,6 +13,8 @@ const PORT = Number(process.env.PORT || 3004);
 const ADMIN_KEY = process.env.ADMIN_KEY || "333";
 const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
+const SHARED_AUTH_SECRET = String(process.env.SHARED_AUTH_SECRET || "").trim();
+const ADMIN_ROLE = String(process.env.ADMIN_ROLE || "ContainerAnmeldung").trim();
 
 const rawDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
 const hasDatabaseUrl = rawDatabaseUrl.length > 0;
@@ -267,6 +270,74 @@ function historyToCSV(entries) {
   return lines.join("\n");
 }
 
+
+function decodeBase64Url(input) {
+  if (!input) return "";
+  const normalized = String(input).replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  return Buffer.from(padded, "base64").toString("utf8");
+}
+
+function parseRoles(rawRoles) {
+  if (Array.isArray(rawRoles)) return rawRoles.map((v) => String(v).trim()).filter(Boolean);
+  if (typeof rawRoles === "string") return rawRoles.split(",").map((v) => v.trim()).filter(Boolean);
+  return [];
+}
+
+function validateSharedSessionToken(token) {
+  if (!SHARED_AUTH_SECRET || !token || typeof token !== "string") {
+    return { ok: false };
+  }
+
+  const parts = token.split(".");
+  if (parts.length !== 2) return { ok: false };
+
+  const [payloadPart, signaturePart] = parts;
+  const expectedSig = crypto
+    .createHmac("sha256", SHARED_AUTH_SECRET)
+    .update(payloadPart)
+    .digest("base64url");
+
+  const expectedBuffer = Buffer.from(expectedSig);
+  const receivedBuffer = Buffer.from(signaturePart);
+  if (expectedBuffer.length !== receivedBuffer.length) return { ok: false };
+  if (!crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) return { ok: false };
+
+  let payload;
+  try {
+    payload = JSON.parse(decodeBase64Url(payloadPart));
+  } catch (_error) {
+    return { ok: false };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const exp = Number(payload?.exp || 0);
+  if (!Number.isInteger(exp) || exp <= now) return { ok: false };
+
+  const roles = parseRoles(payload?.roles);
+  if (!roles.includes(ADMIN_ROLE)) return { ok: false };
+
+  return {
+    ok: true,
+    user: String(payload?.user || payload?.username || "").trim(),
+    roles
+  };
+}
+
+function resolveAdminAccess({ key, session }) {
+  const providedKey = String(key || "");
+  if (providedKey && providedKey === ADMIN_KEY) {
+    return { ok: true, source: "admin_key", user: "", roles: [] };
+  }
+
+  const validated = validateSharedSessionToken(session);
+  if (validated.ok) {
+    return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
+  }
+
+  return { ok: false, source: "none", user: "", roles: [] };
+}
+
 let containers = {};
 
 function emitOne(id) {
@@ -275,8 +346,11 @@ function emitOne(id) {
 
 app.get("/admin-history.csv", async (req, res) => {
   try {
-    const key = String(req.query.key || "");
-    if (key !== ADMIN_KEY) return res.status(403).send("Forbidden");
+    const auth = resolveAdminAccess({
+      key: req.query.key,
+      session: req.query.session
+    });
+    if (!auth.ok) return res.status(403).send("Forbidden");
 
     const entries = await getHistory(1000);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -289,15 +363,24 @@ app.get("/admin-history.csv", async (req, res) => {
 
 io.on("connection", (socket) => {
   socket.data.isAdmin = false;
+  socket.data.adminUser = "";
+  socket.data.adminRoles = [];
   socket.emit("init", containers);
 
-  socket.on("adminAuth", ({ key }) => {
-    if (key && key === ADMIN_KEY) {
+  socket.on("adminAuth", (payload = {}) => {
+    const auth = resolveAdminAccess(payload || {});
+    if (auth.ok) {
       socket.data.isAdmin = true;
-      socket.emit("adminAuthResult", { ok: true });
-    } else {
-      socket.emit("adminAuthResult", { ok: false });
+      socket.data.adminUser = auth.user || "";
+      socket.data.adminRoles = auth.roles || [];
+      socket.emit("adminAuthResult", { ok: true, user: socket.data.adminUser, roles: socket.data.adminRoles });
+      return;
     }
+
+    socket.data.isAdmin = false;
+    socket.data.adminUser = "";
+    socket.data.adminRoles = [];
+    socket.emit("adminAuthResult", { ok: false });
   });
 
   socket.on("adminGetHistory", async ({ limit }) => {

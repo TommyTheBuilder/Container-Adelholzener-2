@@ -405,7 +405,6 @@ function renderAll(state){
       </div>
       <div class="statusArea">
         <div class="regBox ${String(c.status || "").trim().toLowerCase() === "orange" ? "is-active" : ""}" id="regBox-${i}">🕒 ${t("registeredAt")}: <span id="reg-${i}">${reg}</span></div>
-        <div class="regBox" id="regBox-${i}">🕒 Angemeldet um: <span id="reg-${i}">${reg}</span></div>
         <div class="bigPlate" id="plate-${i}">${plateText(c.plate)}</div>
         <div class="metaRow">
           <div id="metaStatus-${i}">${statusText(c.status)}</div>

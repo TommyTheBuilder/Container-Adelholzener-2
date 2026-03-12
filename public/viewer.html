@@ -19,6 +19,8 @@
   --green:#22c55e;
   --orange:#f59e0b;
   --red:#ef4444;
+  --blue:#3b82f6;
+  --violet:#8b5cf6;
   --stroke:rgba(255,255,255,.08);
   --shadow: 0 10px 30px rgba(0,0,0,.35);
   --radius: 18px;
@@ -170,6 +172,8 @@ h1{ margin:0; font-size: 20px; letter-spacing:.4px; }
 .dot.red{background:var(--red)}
 .dot.orange{background:var(--orange)}
 .dot.green{background:var(--green)}
+.dot.blue{background:var(--blue)}
+.dot.violet{background:var(--violet)}
 
 main .wrap{ padding-top: 18px; padding-bottom: 22px; }
 
@@ -253,6 +257,8 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
 .barFill{ height:100%; width: 100%; }
 .barFill.red{ background: var(--red); }
 .barFill.orange{ background: var(--orange); }
+.barFill.blue{ background: var(--blue); }
+.barFill.violet{ background: var(--violet); }
 .barFill.green{ background: var(--green); }
 
 .rampCta{
@@ -289,9 +295,11 @@ main .wrap{ padding-top: 18px; padding-bottom: 22px; }
     </div>
     <div class="legend">
       <button id="langToggle" class="langToggle" type="button">English</button>
-      <div class="badge"><span class="dot red"></span><span id="legend-red">Warten</span></div>
+      <div class="badge"><span class="dot red"></span><span id="legend-red">Slot erstellt</span></div>
       <div class="badge"><span class="dot orange"></span><span id="legend-orange">Angemeldet</span></div>
-      <div class="badge"><span class="dot green"></span><span id="legend-green">An die Rampe</span></div>
+      <div class="badge"><span class="dot blue"></span><span id="legend-blue">An die Rampe</span></div>
+      <div class="badge"><span class="dot violet"></span><span id="legend-violet">Warten auf Zollfreigabe</span></div>
+      <div class="badge"><span class="dot green"></span><span id="legend-green">Zollfreigabe erteilt</span></div>
     </div>
   </div>
 </header>
@@ -312,9 +320,11 @@ const I18N = {
   de: {
     title: "Container Status",
     subtitle: "Live-Übersicht",
-    statusRed: "Warten",
+    statusRed: "Slot erstellt",
     statusOrange: "Angemeldet",
-    statusGreen: "An die Rampe",
+    statusBlue: "An die Rampe",
+    statusViolet: "Warten auf Zollfreigabe",
+    statusGreen: "Zollfreigabe erteilt",
     scheduleShort: "⏱ Termin",
     scheduleLabel: "Termin",
     registeredAt: "Angemeldet um",
@@ -325,9 +335,11 @@ const I18N = {
   en: {
     title: "Container Status",
     subtitle: "Live overview",
-    statusRed: "Waiting",
+    statusRed: "Slot created",
     statusOrange: "Checked in",
-    statusGreen: "Go to ramp",
+    statusBlue: "Go to ramp",
+    statusViolet: "Waiting for customs release",
+    statusGreen: "Customs released",
     scheduleShort: "⏱ Slot",
     scheduleLabel: "Slot",
     registeredAt: "Checked in at",
@@ -341,15 +353,35 @@ function t(key){
   return I18N[currentLang]?.[key] || I18N.de[key] || key;
 }
 
+function normalizedStatus(status){
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "red") return "slot_created";
+  if (normalized === "orange") return "registered";
+  if (normalized === "green") return "to_ramp";
+  return normalized;
+}
+
 function isGreenStatus(status){
-  return String(status || "").trim().toLowerCase() === "green";
+  const normalized = normalizedStatus(status);
+  return normalized === "to_ramp" || normalized === "waiting_customs" || normalized === "customs_released";
 }
 
 function statusText(status){
-  const normalized = String(status || "").trim().toLowerCase();
-  if (normalized === "green") return t("statusGreen");
-  if (normalized === "orange") return t("statusOrange");
+  const normalized = normalizedStatus(status);
+  if (normalized === "customs_released") return t("statusGreen");
+  if (normalized === "waiting_customs") return t("statusViolet");
+  if (normalized === "to_ramp") return t("statusBlue");
+  if (normalized === "registered") return t("statusOrange");
   return t("statusRed");
+}
+
+function statusTone(status){
+  const normalized = normalizedStatus(status);
+  if (normalized === "customs_released") return "green";
+  if (normalized === "waiting_customs") return "violet";
+  if (normalized === "to_ramp") return "blue";
+  if (normalized === "registered") return "orange";
+  return "red";
 }
 
 function timeText(t){
@@ -404,7 +436,7 @@ function renderAll(state){
         </div>
       </div>
       <div class="statusArea">
-        <div class="regBox ${String(c.status || "").trim().toLowerCase() === "orange" ? "is-active" : ""}" id="regBox-${i}">🕒 ${t("registeredAt")}: <span id="reg-${i}">${reg}</span></div>
+        <div class="regBox ${statusTone(c.status) !== "red" ? "is-active" : ""}" id="regBox-${i}">🕒 ${t("registeredAt")}: <span id="reg-${i}">${reg}</span></div>
         <div class="bigPlate" id="plate-${i}">${plateText(c.plate)}</div>
         <div class="metaRow">
           <div id="metaStatus-${i}">${statusText(c.status)}</div>
@@ -412,7 +444,7 @@ function renderAll(state){
           <div id="metaReg-${i}">${t("registered")}: ${reg}</div>
         </div>
         <div id="ramp-${i}" style="width:100%;">${rampLinkHtml(c.status)}</div>
-        <div class="bar"><div class="barFill ${String(c.status || "").trim().toLowerCase()}" id="bar-${i}"></div></div>
+        <div class="bar"><div class="barFill ${statusTone(c.status)}" id="bar-${i}"></div></div>
       </div>
     `;
 
@@ -432,9 +464,7 @@ function applyOne(id, data){
   document.getElementById("metaReg-"+id).textContent = t("registered") + ": " + reg;
   document.getElementById("ramp-"+id).innerHTML = rampLinkHtml(data.status);
 
-  const normalized = String(data.status || "").trim().toLowerCase();
-  const safeStatus = ["red", "orange", "green"].includes(normalized) ? normalized : "red";
-  document.getElementById("bar-"+id).className = "barFill " + safeStatus;
+  document.getElementById("bar-"+id).className = "barFill " + statusTone(data.status);
 }
 
 function applyStaticTranslations(){
@@ -442,6 +472,8 @@ function applyStaticTranslations(){
   document.getElementById("subtitle").textContent = t("subtitle");
   document.getElementById("legend-red").textContent = t("statusRed");
   document.getElementById("legend-orange").textContent = t("statusOrange");
+  document.getElementById("legend-blue").textContent = t("statusBlue");
+  document.getElementById("legend-violet").textContent = t("statusViolet");
   document.getElementById("legend-green").textContent = t("statusGreen");
   document.getElementById("langToggle").textContent = t("toggle");
 }

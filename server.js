@@ -53,12 +53,30 @@ app.get("/health", async (req, res) => {
   }
 });
 
-const STATUSES = ["red", "orange", "green"]; // rot=warten, orange=angemeldet, grün=rampe
+const STATUS_SLOT_CREATED = "slot_created";
+const STATUS_REGISTERED = "registered";
+const STATUS_TO_RAMP = "to_ramp";
+const STATUS_WAITING_CUSTOMS = "waiting_customs";
+const STATUS_CUSTOMS_RELEASED = "customs_released";
+
+const LEGACY_STATUS_MAP = {
+  red: STATUS_SLOT_CREATED,
+  orange: STATUS_REGISTERED,
+  green: STATUS_TO_RAMP
+};
+
+const STATUSES = [
+  STATUS_SLOT_CREATED,
+  STATUS_REGISTERED,
+  STATUS_TO_RAMP,
+  STATUS_WAITING_CUSTOMS,
+  STATUS_CUSTOMS_RELEASED
+];
 
 function defaultContainer(id) {
   return {
     id,
-    status: "red",
+    status: STATUS_SLOT_CREATED,
     plate: "",
     time: "",
     registeredAt: "",
@@ -68,7 +86,9 @@ function defaultContainer(id) {
 
 function normalizeContainer(row) {
   return {
-    status: STATUSES.includes(row.status) ? row.status : "red",
+    status: STATUSES.includes(row.status)
+      ? row.status
+      : (LEGACY_STATUS_MAP[row.status] || STATUS_SLOT_CREATED),
     plate: typeof row.plate === "string" ? row.plate : "",
     time: typeof row.time === "string" ? row.time : "",
     registeredAt: row.registered_at ? new Date(row.registered_at).toISOString() : "",
@@ -80,7 +100,7 @@ async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS containers (
       id INTEGER PRIMARY KEY,
-      status TEXT NOT NULL DEFAULT 'red',
+      status TEXT NOT NULL DEFAULT 'slot_created',
       plate TEXT NOT NULL DEFAULT '',
       time TEXT NOT NULL DEFAULT '',
       registered_at TIMESTAMPTZ,
@@ -422,7 +442,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const isFree = containers[cid].status === "red" && !containers[cid].plate.trim();
+    const isFree = containers[cid].status === STATUS_SLOT_CREATED && !containers[cid].plate.trim();
     if (!isFree) {
       socket.emit("driverRegisterResult", {
         ok: false,
@@ -434,7 +454,7 @@ io.on("connection", (socket) => {
     const nowIso = new Date().toISOString();
     const bookingNo = await nextBookingNo();
     containers[cid].plate = safePlate;
-    containers[cid].status = "orange";
+    containers[cid].status = STATUS_REGISTERED;
     containers[cid].registeredAt = nowIso;
     containers[cid].bookingNo = bookingNo;
 
@@ -457,7 +477,7 @@ io.on("connection", (socket) => {
 
     const cid = Number(id);
     if (!containers[cid]) return;
-    if (status !== "red" && status !== "green") return;
+    if (!STATUSES.includes(status)) return;
 
     const before = containers[cid].status;
     containers[cid].status = status;

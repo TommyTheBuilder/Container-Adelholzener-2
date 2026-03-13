@@ -677,8 +677,9 @@ socket.on("driverRegisterResult", ({ ok, message }) => {
   showMsg(message);
 
   if (ok){
-    // nach erfolgreicher Anmeldung direkt in die Viewer-Ansicht
-    window.location.href = "/viewer.html";
+    // nach erfolgreicher Anmeldung nur den eigenen gebuchten Slot in der Viewer-Ansicht anzeigen
+    const target = `/viewer.html?slot=${selectedId}&plate=${encodeURIComponent(plateEl.value.trim().toUpperCase())}`;
+    window.location.href = target;
   }
 });
 </script>

@@ -345,6 +345,16 @@ body.dark .bar { background: #0F172A; }
 body.dark .rampCta a { color: #dcfce7; }
 .rampUrl { margin-top: 4px; color: #15803d; font-size: 12px; word-break: break-all; }
 body.dark .rampUrl { color: #bbf7d0; }
+
+.emptyState {
+  grid-column: 1 / -1;
+  border-radius: 14px;
+  border: 1px dashed var(--panel-border);
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  padding: 24px 16px;
+  text-align: center;
+}
 </style>
 </head>
 
@@ -398,6 +408,10 @@ const DASHBOARD_URL = "https://test.paletten-ms.de/public/dashboard.html";
 let audioContext = null;
 let currentLang = localStorage.getItem("viewerLang") || "de";
 let currentState = null;
+const queryParams = new URLSearchParams(window.location.search);
+const filteredPlate = String(queryParams.get("plate") || "").trim().toUpperCase();
+const filteredSlot = Number(queryParams.get("slot"));
+let focusedContainerId = Number.isInteger(filteredSlot) && filteredSlot >= 1 && filteredSlot <= 8 ? filteredSlot : null;
 
 const I18N = {
   de: {
@@ -486,11 +500,34 @@ function registeredTime(iso){
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function getVisibleContainerIds(state){
+  if (focusedContainerId && state[focusedContainerId]) return [focusedContainerId];
+
+  if (filteredPlate) {
+    for (let i = 1; i <= 8; i++) {
+      const plate = String(state[i]?.plate || "").trim().toUpperCase();
+      if (plate && plate === filteredPlate) {
+        focusedContainerId = i;
+        return [i];
+      }
+    }
+    return [];
+  }
+
+  return [1, 2, 3, 4, 5, 6, 7, 8];
+}
+
 function renderAll(state){
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
 
-  for(let i=1;i<=8;i++){
+  const visibleIds = getVisibleContainerIds(state);
+  if (!visibleIds.length) {
+    grid.innerHTML = `<div class="emptyState">Kein gebuchter Slot für Kennzeichen <b>${filteredPlate}</b> gefunden.</div>`;
+    return;
+  }
+
+  for (const i of visibleIds){
     const c = state[i];
     const time = timeText(c.time);
     const reg = registeredTime(c.registeredAt);
@@ -629,6 +666,7 @@ socket.on("init", (state) => {
 });
 
 socket.on("statusChanged", ({ id, data }) => {
+  if (focusedContainerId && Number(id) !== focusedContainerId) return;
   if (currentState) currentState[id] = data;
   applyOne(id, data);
   triggerNotification();

@@ -530,7 +530,12 @@ body.dark .toast{
 <script>
 const pageParams = new URLSearchParams(window.location.search);
 const adminQueryToken = String(pageParams.get("token") || "").trim();
-const socket = io();
+const socket = io({
+  auth: {
+    token: adminQueryToken,
+    ssoToken: adminQueryToken
+  }
+});
 const DASHBOARD_URL = "https://test.paletten-ms.de/public/dashboard.html";
 let current = {};
 let isAuthed = false;

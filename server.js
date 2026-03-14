@@ -10,7 +10,12 @@ const {
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: true,
+    credentials: true
+  }
+});
 
 // ====== CONFIG ======
 const PORT = Number(process.env.PORT || 3004);
@@ -450,15 +455,23 @@ async function resolveAdminAccess(authInput = {}) {
   const cookieHeader = typeof authInput === "string"
     ? authInput
     : String(authInput?.cookieHeader || "");
-  const explicitToken = typeof authInput === "object"
-    ? String(authInput?.token || "").trim()
+  const directToken = typeof authInput === "object"
+    ? String(authInput?.token || authInput?.ssoToken || "").trim()
     : "";
 
   const session = resolveSessionToken(cookieHeader);
-  const sessionToken = explicitToken || session;
+  const sessionToken = session || directToken;
   const validated = validateSharedSessionToken(sessionToken, SHARED_AUTH_SECRET);
   if (validated.ok) {
-    return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
+    const allowed = await hasPermission(validated.user, ADMIN_PERMISSION_KEY);
+    if (!allowed) return { ok: false, source: "forbidden", user: validated.user, roles: validated.roles };
+
+    return {
+      ok: true,
+      source: session ? "shared_session" : "direct_token",
+      user: validated.user,
+      roles: validated.roles
+    };
   }
 
   return { ok: false, source: "none", user: "", roles: [] };
@@ -517,10 +530,12 @@ io.on("connection", (socket) => {
   socket.emit("init", containers);
 
   socket.on("adminAuth", async (payload = {}) => {
+    const payloadToken = String(payload?.token || payload?.ssoToken || "").trim();
+    const handshakeToken = String(socket.handshake.auth?.token || socket.handshake.auth?.ssoToken || "").trim();
     const auth = await resolveAdminAccess({
       cookieHeader: socket.handshake.headers.cookie || "",
       referer: socket.handshake.headers.referer || "",
-      token: String(payload?.token || "").trim()
+      token: payloadToken || handshakeToken
     });
     if (auth.ok) {
       socket.data.isAdmin = true;

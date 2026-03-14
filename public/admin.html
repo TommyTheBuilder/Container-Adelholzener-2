@@ -484,7 +484,7 @@ body.dark .toast{
   <div class="wrap">
     <div id="authBlock" class="block" style="display:none">
       <div style="font-weight:950; font-size:16px;">Kein Admin-Zugriff</div>
-      <div class="note">Öffne die Seite über den zentralen Login, damit das signierte Session-Cookie gesetzt ist.</div>
+      <div class="note">Öffne die Seite über den zentralen Login, damit ein gültiger Session-Cookie oder token-Parameter vorhanden ist.</div>
     </div>
 
     <div id="grid" class="grid" style="display:none"></div>
@@ -528,6 +528,8 @@ body.dark .toast{
 <div id="toast" class="toast"></div>
 
 <script>
+const pageParams = new URLSearchParams(window.location.search);
+const adminQueryToken = String(pageParams.get("token") || "").trim();
 const socket = io();
 const DASHBOARD_URL = "https://test.paletten-ms.de/public/dashboard.html";
 let current = {};
@@ -882,7 +884,7 @@ document.getElementById("histBody").addEventListener("click", (event) => {
 // ===== Auth + Init =====
 socket.on("init", (state) => {
   current = state;
-  socket.emit("adminAuth", {});
+  socket.emit("adminAuth", { token: adminQueryToken });
 });
 
 socket.on("adminAuthResult", ({ ok, user: authUser }) => {

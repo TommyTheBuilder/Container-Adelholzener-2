@@ -17,7 +17,6 @@ const PORT = Number(process.env.PORT || 3004);
 const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
 const SHARED_AUTH_SECRET = String(process.env.SHARED_AUTH_SECRET || "13215489156189421598412").trim();
-const ADMIN_ROLE = String(process.env.ADMIN_ROLE || "ContainerAnmeldung").trim();
 const ADMIN_PERMISSION_KEY = String(process.env.ADMIN_PERMISSION_KEY || "integration.container_login").trim();
 const ADMIN_AUTH_DATABASE_URL = String(
   process.env.ADMIN_AUTH_DATABASE_URL || "postgresql://palettenuser:DEIN_STARKES_PASSWORT@localhost:5432/palettenmanagement"
@@ -338,18 +337,6 @@ function parseRoles(rawRoles) {
   return [];
 }
 
-async function hasAdminPermission(user) {
-  if (!authPool || !user || !ADMIN_PERMISSION_KEY) return false;
-
-  try {
-    const result = await authPool.query(ADMIN_AUTH_QUERY, [user, ADMIN_PERMISSION_KEY]);
-    return result.rowCount > 0;
-  } catch (error) {
-    console.error("admin permission query failed", { message: error.message });
-    return false;
-  }
-}
-
 function resolveSessionToken(cookieHeader) {
   const cookies = parseCookieHeader(typeof cookieHeader === "string" ? cookieHeader : "");
 
@@ -458,11 +445,31 @@ async function handleSsoRequest(req, res, config) {
   });
 }
 
-async function resolveAdminAccess(cookieHeader = "") {
-  const session = resolveSessionToken(cookieHeader);
-  const validated = validateSharedSessionToken(session, SHARED_AUTH_SECRET);
-  if (validated.ok && await hasAdminPermission(validated.user)) {
-    return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
+async function resolveAdminAccess({ cookieHeader = "", token = "", referer = "" } = {}) {
+  const tokenCandidates = [];
+
+  const sessionFromCookie = resolveSessionToken(cookieHeader);
+  if (sessionFromCookie) tokenCandidates.push({ source: "shared_session", token: sessionFromCookie });
+
+  const tokenFromPayload = String(token || "").trim();
+  if (tokenFromPayload) tokenCandidates.push({ source: "query_token", token: tokenFromPayload });
+
+  const refererUrl = String(referer || "").trim();
+  if (refererUrl) {
+    try {
+      const parsed = new URL(refererUrl);
+      const tokenFromReferer = String(parsed.searchParams.get("token") || "").trim();
+      if (tokenFromReferer) tokenCandidates.push({ source: "referer_token", token: tokenFromReferer });
+    } catch (_error) {
+      // ignore invalid referer values
+    }
+  }
+
+  for (const candidate of tokenCandidates) {
+    const validated = validateSharedSessionToken(candidate.token, SHARED_AUTH_SECRET);
+    if (validated.ok) {
+      return { ok: true, source: candidate.source, user: validated.user, roles: validated.roles };
+    }
   }
 
   return { ok: false, source: "none", user: "", roles: [] };
@@ -502,7 +509,7 @@ function emitOne(id) {
 
 app.get("/admin-history.csv", async (req, res) => {
   try {
-    const auth = await resolveAdminAccess(req.headers.cookie || "");
+    const auth = await resolveAdminAccess({ cookieHeader: req.headers.cookie || "", referer: req.headers.referer || "" });
     if (!auth.ok) return res.status(403).send("Forbidden");
 
     const entries = await getHistory(1000);
@@ -520,8 +527,12 @@ io.on("connection", (socket) => {
   socket.data.adminRoles = [];
   socket.emit("init", containers);
 
-  socket.on("adminAuth", async () => {
-    const auth = await resolveAdminAccess(socket.handshake.headers.cookie || "");
+  socket.on("adminAuth", async (payload = {}) => {
+    const auth = await resolveAdminAccess({
+      cookieHeader: socket.handshake.headers.cookie || "",
+      referer: socket.handshake.headers.referer || "",
+      token: String(payload?.token || "").trim()
+    });
     if (auth.ok) {
       socket.data.isAdmin = true;
       socket.data.adminUser = auth.user || "";

@@ -14,6 +14,31 @@ const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
 const SHARED_AUTH_SECRET = String(process.env.SHARED_AUTH_SECRET || "13215489156189421598412").trim();
 const ADMIN_ROLE = String(process.env.ADMIN_ROLE || "ContainerAnmeldung").trim();
+const ADMIN_PERMISSION_KEY = String(process.env.ADMIN_PERMISSION_KEY || "integration.container_login").trim();
+const ADMIN_AUTH_DATABASE_URL = String(
+  process.env.ADMIN_AUTH_DATABASE_URL || "postgresql://palettenuser:DEIN_STARKES_PASSWORT@localhost:5432/palettenmanagement"
+).trim();
+const DEFAULT_ADMIN_AUTH_QUERY = `
+  SELECT 1
+  FROM users u
+  JOIN user_roles ur ON ur.user_id = u.id
+  JOIN role_permissions rp ON rp.role_id = ur.role_id
+  JOIN permissions p ON p.id = rp.permission_id
+  WHERE LOWER(u.username) = LOWER($1)
+    AND p.key = $2
+  LIMIT 1
+`;
+const ADMIN_AUTH_QUERY = (() => {
+  const raw = String(process.env.ADMIN_AUTH_QUERY || "").trim();
+  if (!raw) return DEFAULT_ADMIN_AUTH_QUERY.trim();
+
+  const looksLikeSql = /^select\b/i.test(raw);
+  const hasParams = raw.includes("$1") && raw.includes("$2");
+  if (looksLikeSql && hasParams) return raw;
+
+  console.warn("Invalid ADMIN_AUTH_QUERY configured. Falling back to default query.");
+  return DEFAULT_ADMIN_AUTH_QUERY.trim();
+})();
 const SESSION_COOKIE_NAME = String(process.env.SESSION_COOKIE_NAME || "session").trim();
 
 const rawDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
@@ -40,6 +65,7 @@ const DB_CONFIG = hasDatabaseUrl && !hasPgEnvOverride
 // ====================
 
 const pool = new Pool(DB_CONFIG);
+const authPool = ADMIN_AUTH_DATABASE_URL ? new Pool({ connectionString: ADMIN_AUTH_DATABASE_URL, ssl: dbSsl }) : null;
 
 app.use(express.static("public"));
 
@@ -353,13 +379,26 @@ function validateSharedSessionToken(token) {
   if (!Number.isInteger(exp) || exp <= now) return { ok: false };
 
   const roles = parseRoles(payload?.roles);
-  if (!roles.includes(ADMIN_ROLE)) return { ok: false };
+  const user = String(payload?.user || payload?.username || "").trim();
+  if (!user) return { ok: false };
 
   return {
     ok: true,
-    user: String(payload?.user || payload?.username || "").trim(),
+    user,
     roles
   };
+}
+
+async function hasAdminPermission(user) {
+  if (!authPool || !user || !ADMIN_PERMISSION_KEY) return false;
+
+  try {
+    const result = await authPool.query(ADMIN_AUTH_QUERY, [user, ADMIN_PERMISSION_KEY]);
+    return result.rowCount > 0;
+  } catch (error) {
+    console.error("admin permission query failed", { message: error.message });
+    return false;
+  }
 }
 
 function resolveSessionToken(cookieHeader) {
@@ -374,10 +413,10 @@ function resolveSessionToken(cookieHeader) {
   return String(cookies.token || "").trim();
 }
 
-function resolveAdminAccess(cookieHeader = "") {
+async function resolveAdminAccess(cookieHeader = "") {
   const session = resolveSessionToken(cookieHeader);
   const validated = validateSharedSessionToken(session);
-  if (validated.ok) {
+  if (validated.ok && await hasAdminPermission(validated.user)) {
     return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
   }
 
@@ -392,7 +431,7 @@ function emitOne(id) {
 
 app.get("/admin-history.csv", async (req, res) => {
   try {
-    const auth = resolveAdminAccess(req.headers.cookie || "");
+    const auth = await resolveAdminAccess(req.headers.cookie || "");
     if (!auth.ok) return res.status(403).send("Forbidden");
 
     const entries = await getHistory(1000);
@@ -410,8 +449,8 @@ io.on("connection", (socket) => {
   socket.data.adminRoles = [];
   socket.emit("init", containers);
 
-  socket.on("adminAuth", () => {
-    const auth = resolveAdminAccess(socket.handshake.headers.cookie || "");
+  socket.on("adminAuth", async () => {
+    const auth = await resolveAdminAccess(socket.handshake.headers.cookie || "");
     if (auth.ok) {
       socket.data.isAdmin = true;
       socket.data.adminUser = auth.user || "";

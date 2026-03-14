@@ -62,7 +62,11 @@ signiertem Session-Cookie übernehmen.
 ### Serverseite konfigurieren
 - `SHARED_AUTH_SECRET`: gemeinsames Secret zwischen Dashboard und Container-App
   - Vorgabe aktuell: `13215489156189421598412`
-- `ADMIN_ROLE` (optional): Rollenname, der als Admin gilt (Default: `ContainerAnmeldung`)
+- `ADMIN_AUTH_DATABASE_URL` (optional): DB-Verbindung für Berechtigungsprüfung (Default: `postgresql://palettenuser:DEIN_STARKES_PASSWORT@localhost:5432/palettenmanagement`)
+- `ADMIN_PERMISSION_KEY` (optional): Permission-Key, der `admin.html` freischaltet (Default: `integration.container_login`)
+- `ADMIN_AUTH_QUERY` (optional): **vollständige** SQL-Query mit Parametern `$1` (username), `$2` (permissionKey).
+  Beispiel: `SELECT 1 FROM users u ... WHERE LOWER(u.username)=LOWER($1) AND p.key=$2 LIMIT 1`
+  > Nicht als `\$1=username, \$2=permissionKey` setzen (das ist keine SQL-Abfrage).
 
 ### Cookie-Format (`session` Cookie)
 Das Cookie (Name standardmäßig `session`, optional per `SESSION_COOKIE_NAME`) hat das Format:
@@ -78,20 +82,21 @@ Empfohlenes Payload-JSON:
 ```
 
 - `exp` ist ein Unix-Timestamp (Sekunden) und muss in der Zukunft liegen.
-- Enthält `roles` nicht die `ADMIN_ROLE`, wird der Zugriff abgelehnt.
+- Das Session-Cookie muss gültig/signiert sein; die Freigabe für `admin.html` erfolgt anschließend über die Datenbank (`ADMIN_PERMISSION_KEY`).
 
 
 ### Berechtigung im Login-/Dashboard-Projekt anlegen
-Lege im zentralen Login-/Rechtesystem die Berechtigung **`ContainerAnmeldung`** an und ordne sie
+Lege im zentralen Login-/Rechtesystem die Berechtigung **`integration.container_login`** an und ordne sie
 den Benutzern/Gruppen zu, die Zugriff auf `admin.html` erhalten sollen.
 
-Nur wenn das Session-Token die Rolle `ContainerAnmeldung` enthält, wird der Zugriff erlaubt.
+Die Container-App prüft den Zugriff über die PostgreSQL-Datenbank `palettenmanagement` und erlaubt
+`admin.html` nur, wenn der Benutzer diese Berechtigung besitzt.
 
 ### Weiterleitung vom Dashboard zur Container-Adminseite
 Beispiel:
 `https://container.paletten-ms.de/admin.html`
 
-Hinweis: Das signierte Session-Token wird ausschließlich per Cookie übertragen (keine Token in der URL).
+Hinweis: Die Authentifizierung läuft ausschließlich über das signierte Session-Cookie (keine Token in der URL).
 
 
 
@@ -103,10 +108,10 @@ Bitte implementiere eine SSO-Weitergabe zur Container-App mit signiertem Session
 
 Ziel:
 - Beim Login auf test.paletten-ms.de/login.html und Weiterleitung auf dashboard.html soll vor dem Aufruf der Container-App ein signiertes Session-Cookie gesetzt werden.
-- Die Container-App akzeptiert nur Benutzer mit der Berechtigung `ContainerAnmeldung`.
+- Die Container-App akzeptiert nur Benutzer mit der Berechtigung `integration.container_login` (per DB-Check).
 
 Anforderungen:
-1) Lege (falls noch nicht vorhanden) die Berechtigung `ContainerAnmeldung` im Rechtesystem an und weise sie den berechtigten Nutzern/Gruppen zu.
+1) Lege (falls noch nicht vorhanden) die Berechtigung `integration.container_login` im Rechtesystem an und weise sie den berechtigten Nutzern/Gruppen zu.
 2) Erzeuge ein JSON-Payload mit:
    - `user`: Benutzername
    - `roles`: Array aller Rechte/Rollen
@@ -122,7 +127,7 @@ Anforderungen:
    - `Max-Age=300`
 6) Verlinke anschließend ohne Query-Token auf:
    `https://container.paletten-ms.de/admin.html`
-7) Achte darauf, dass `roles` den Eintrag `ContainerAnmeldung` enthält; sonst keinen Admin-Link anzeigen.
+7) Achte darauf, dass der Benutzer die Berechtigung `integration.container_login` besitzt; sonst keinen Admin-Link anzeigen.
 
 Bitte liefere den finalen Code inkl. kurzer Security-Hinweise (TTL, Secret-Handling, kein Logging des Tokens, Cookie-Flags).
 ```

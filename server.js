@@ -17,9 +17,10 @@ const PORT = Number(process.env.PORT || 3004);
 const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
 const SHARED_AUTH_SECRET = String(process.env.SHARED_AUTH_SECRET || "13215489156189421598412").trim();
-const ADMIN_PERMISSION_KEY = String(process.env.ADMIN_PERMISSION_KEY || "integration.container_login").trim();
+const ADMIN_ROLE = String(process.env.ADMIN_ROLE || "ContainerAnmeldung").trim();
+const ADMIN_PERMISSION_KEY = String(process.env.ADMIN_PERMISSION_KEY || "integrations.container_registration").trim();
 const ADMIN_AUTH_DATABASE_URL = String(
-  process.env.ADMIN_AUTH_DATABASE_URL || "postgresql://palettenuser:DEIN_STARKES_PASSWORT@localhost:5432/palettenmanagement"
+  process.env.ADMIN_AUTH_DATABASE_URL || "postgresql://adminauth:adminauth11@db-host:5432/admin_auth"
 ).trim();
 const DEFAULT_ADMIN_AUTH_QUERY = `
   SELECT 1

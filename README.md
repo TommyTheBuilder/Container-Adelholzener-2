@@ -64,7 +64,9 @@ signiertem Session-Cookie übernehmen.
   - Vorgabe aktuell: `13215489156189421598412`
 - `ADMIN_AUTH_DATABASE_URL` (optional): DB-Verbindung für Berechtigungsprüfung (Default: `postgresql://palettenuser:DEIN_STARKES_PASSWORT@localhost:5432/palettenmanagement`)
 - `ADMIN_PERMISSION_KEY` (optional): Permission-Key, der `admin.html` freischaltet (Default: `integration.container_login`)
-- `ADMIN_AUTH_QUERY` (optional): SQL-Query mit Parametern `$1=username`, `$2=permissionKey`
+- `ADMIN_AUTH_QUERY` (optional): **vollständige** SQL-Query mit Parametern `$1` (username), `$2` (permissionKey).
+  Beispiel: `SELECT 1 FROM users u ... WHERE LOWER(u.username)=LOWER($1) AND p.key=$2 LIMIT 1`
+  > Nicht als `\$1=username, \$2=permissionKey` setzen (das ist keine SQL-Abfrage).
 
 ### Cookie-Format (`session` Cookie)
 Das Cookie (Name standardmäßig `session`, optional per `SESSION_COOKIE_NAME`) hat das Format:
@@ -94,7 +96,7 @@ Die Container-App prüft den Zugriff über die PostgreSQL-Datenbank `palettenman
 Beispiel:
 `https://container.paletten-ms.de/admin.html`
 
-Hinweis: Das signierte Session-Token wird ausschließlich per Cookie übertragen (keine Token in der URL).
+Hinweis: Die Authentifizierung läuft ausschließlich über das signierte Session-Cookie (keine Token in der URL).
 
 
 

@@ -18,18 +18,27 @@ const ADMIN_PERMISSION_KEY = String(process.env.ADMIN_PERMISSION_KEY || "integra
 const ADMIN_AUTH_DATABASE_URL = String(
   process.env.ADMIN_AUTH_DATABASE_URL || "postgresql://palettenuser:DEIN_STARKES_PASSWORT@localhost:5432/palettenmanagement"
 ).trim();
-const ADMIN_AUTH_QUERY = String(
-  process.env.ADMIN_AUTH_QUERY || `
-    SELECT 1
-    FROM users u
-    JOIN user_roles ur ON ur.user_id = u.id
-    JOIN role_permissions rp ON rp.role_id = ur.role_id
-    JOIN permissions p ON p.id = rp.permission_id
-    WHERE LOWER(u.username) = LOWER($1)
-      AND p.key = $2
-    LIMIT 1
-  `
-).trim();
+const DEFAULT_ADMIN_AUTH_QUERY = `
+  SELECT 1
+  FROM users u
+  JOIN user_roles ur ON ur.user_id = u.id
+  JOIN role_permissions rp ON rp.role_id = ur.role_id
+  JOIN permissions p ON p.id = rp.permission_id
+  WHERE LOWER(u.username) = LOWER($1)
+    AND p.key = $2
+  LIMIT 1
+`;
+const ADMIN_AUTH_QUERY = (() => {
+  const raw = String(process.env.ADMIN_AUTH_QUERY || "").trim();
+  if (!raw) return DEFAULT_ADMIN_AUTH_QUERY.trim();
+
+  const looksLikeSql = /^select\b/i.test(raw);
+  const hasParams = raw.includes("$1") && raw.includes("$2");
+  if (looksLikeSql && hasParams) return raw;
+
+  console.warn("Invalid ADMIN_AUTH_QUERY configured. Falling back to default query.");
+  return DEFAULT_ADMIN_AUTH_QUERY.trim();
+})();
 const SESSION_COOKIE_NAME = String(process.env.SESSION_COOKIE_NAME || "session").trim();
 
 const rawDatabaseUrl = String(process.env.DATABASE_URL || "").trim();

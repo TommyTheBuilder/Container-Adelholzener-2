@@ -369,12 +369,7 @@ body.dark .rampUrl { color: #bbf7d0; }
       <div class="settingsWrap">
         <button class="iconBtn" id="settingsToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Einstellungen">⚙️</button>
         <div class="settingsMenu" id="settingsMenu" role="menu">
-          <a class="menuItem menuItemLink darkSection" href="/admin.html">Admin</a>
-          <button class="menuItem lightSection" type="button" id="changePasswordBtn">Passwort ändern</button>
-          <a class="menuItem menuItemLink lightSection" href="/driver.html">Container Anmeldung</a>
           <button class="menuItem lightSection" type="button" id="darkmodeToggle">Darkmode umschalten</button>
-          <a class="menuItem menuItemLink lightSection" id="dashboardLink" href="https://test.paletten-ms.de/public/dashboard.html">Modul-Dashboard</a>
-          <button class="menuItem darkSection" type="button" id="logoutBtn">Logout</button>
         </div>
       </div>
     </div>
@@ -404,7 +399,6 @@ body.dark .rampUrl { color: #bbf7d0; }
 
 <script>
 const socket = io();
-const DASHBOARD_URL = "https://test.paletten-ms.de/public/dashboard.html";
 let audioContext = null;
 let currentLang = localStorage.getItem("viewerLang") || "de";
 let currentState = null;
@@ -412,11 +406,6 @@ const queryParams = new URLSearchParams(window.location.search);
 const filteredPlate = String(queryParams.get("plate") || "").trim().toUpperCase();
 const filteredSlot = Number(queryParams.get("slot"));
 let focusedContainerId = Number.isInteger(filteredSlot) && filteredSlot >= 1 && filteredSlot <= 8 ? filteredSlot : null;
-
-const dashboardLinkEl = document.getElementById("dashboardLink");
-if (dashboardLinkEl) {
-  dashboardLinkEl.href = DASHBOARD_URL;
-}
 
 const I18N = {
   de: {
@@ -630,29 +619,6 @@ document.getElementById("darkmodeToggle").addEventListener("click", () => {
   const nextTheme = document.body.classList.contains("dark") ? "light" : "dark";
   applyTheme(nextTheme);
   toggleSettingsMenu(false);
-});
-
-document.getElementById("changePasswordBtn").addEventListener("click", () => {
-  toggleSettingsMenu(false);
-  window.location.href = "/change-password.html";
-});
-
-document.getElementById("dashboardLink").addEventListener("click", (event) => {
-  event.preventDefault();
-  toggleSettingsMenu(false);
-  window.location.href = dashboardLinkEl?.href || DASHBOARD_URL;
-});
-
-document.getElementById("logoutBtn").addEventListener("click", async () => {
-  try {
-    await fetch("/logout", { method: "POST", credentials: "include" });
-  } catch (error) {
-    console.warn("Logout endpoint nicht erreichbar:", error);
-  }
-  localStorage.removeItem("viewer-theme");
-  localStorage.removeItem("viewerLang");
-  toggleSettingsMenu(false);
-  window.location.href = "/";
 });
 
 document.addEventListener("click", (event) => {

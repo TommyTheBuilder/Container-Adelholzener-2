@@ -490,7 +490,7 @@ function emitOne(id) {
 
 app.get("/admin-history.csv", async (req, res) => {
   try {
-    const auth = await resolveAdminAccess(req.headers.cookie || "");
+    const auth = await resolveAdminAccess({ cookieHeader: req.headers.cookie || "", referer: req.headers.referer || "" });
     if (!auth.ok) return res.status(403).send("Forbidden");
 
     const entries = await getHistory(1000);
@@ -508,8 +508,12 @@ io.on("connection", (socket) => {
   socket.data.adminRoles = [];
   socket.emit("init", containers);
 
-  socket.on("adminAuth", async () => {
-    const auth = await resolveAdminAccess(socket.handshake.headers.cookie || "");
+  socket.on("adminAuth", async (payload = {}) => {
+    const auth = await resolveAdminAccess({
+      cookieHeader: socket.handshake.headers.cookie || "",
+      referer: socket.handshake.headers.referer || "",
+      token: String(payload?.token || "").trim()
+    });
     if (auth.ok) {
       socket.data.isAdmin = true;
       socket.data.adminUser = auth.user || "";

@@ -104,7 +104,8 @@ Für Cross-Site-Szenarien:
 - `SSO_CONTAINER_PLANNING_PERMISSION_KEY` (Default `integration.container_planning`)
 
 Zusätzlich für Berechtigungsprüfung:
-- `ADMIN_AUTH_DATABASE_URL`
+- `ADMIN_PERMISSION_KEY` (Default `integrations.container_registration`)
+- `ADMIN_AUTH_DATABASE_URL` (Default `postgresql://adminauth:adminauth11@db-host:5432/admin_auth`)
 - `ADMIN_AUTH_QUERY`
 
 ## Beispiel-Checks (cURL)

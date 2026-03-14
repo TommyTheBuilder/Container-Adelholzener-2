@@ -10,7 +10,6 @@ const io = new Server(server);
 
 // ====== CONFIG ======
 const PORT = Number(process.env.PORT || 3004);
-const ADMIN_KEY = process.env.ADMIN_KEY || "333";
 const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
 const SHARED_AUTH_SECRET = String(process.env.SHARED_AUTH_SECRET || "13215489156189421598412").trim();
@@ -344,12 +343,15 @@ function validateSharedSessionToken(token) {
   };
 }
 
-function resolveAdminAccess({ key, session }) {
-  const providedKey = String(key || "");
-  if (providedKey && providedKey === ADMIN_KEY) {
-    return { ok: true, source: "admin_key", user: "", roles: [] };
-  }
+function resolveSessionToken(input) {
+  if (!input || typeof input !== "object") return "";
+  const session = String(input.session || "").trim();
+  if (session) return session;
+  return String(input.token || "").trim();
+}
 
+function resolveAdminAccess(input = {}) {
+  const session = resolveSessionToken(input);
   const validated = validateSharedSessionToken(session);
   if (validated.ok) {
     return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
@@ -366,10 +368,7 @@ function emitOne(id) {
 
 app.get("/admin-history.csv", async (req, res) => {
   try {
-    const auth = resolveAdminAccess({
-      key: req.query.key,
-      session: req.query.session
-    });
+    const auth = resolveAdminAccess(req.query || {});
     if (!auth.ok) return res.status(403).send("Forbidden");
 
     const entries = await getHistory(1000);

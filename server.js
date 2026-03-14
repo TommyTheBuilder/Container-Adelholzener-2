@@ -338,18 +338,6 @@ function parseRoles(rawRoles) {
   return [];
 }
 
-async function hasAdminPermission(user) {
-  if (!authPool || !user || !ADMIN_PERMISSION_KEY) return false;
-
-  try {
-    const result = await authPool.query(ADMIN_AUTH_QUERY, [user, ADMIN_PERMISSION_KEY]);
-    return result.rowCount > 0;
-  } catch (error) {
-    console.error("admin permission query failed", { message: error.message });
-    return false;
-  }
-}
-
 function resolveSessionToken(cookieHeader) {
   const cookies = parseCookieHeader(typeof cookieHeader === "string" ? cookieHeader : "");
 
@@ -461,7 +449,7 @@ async function handleSsoRequest(req, res, config) {
 async function resolveAdminAccess(cookieHeader = "") {
   const session = resolveSessionToken(cookieHeader);
   const validated = validateSharedSessionToken(session, SHARED_AUTH_SECRET);
-  if (validated.ok && await hasAdminPermission(validated.user)) {
+  if (validated.ok) {
     return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
   }
 

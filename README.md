@@ -36,6 +36,14 @@ npm start
 
 Der Server läuft danach auf `http://127.0.0.1:3004`.
 
+## Login & Session-Cookie
+
+- Login-Seite: `GET /login.html`
+- Login-API: `POST /api/login`
+- Logout-API: `POST /api/logout`
+
+`/api/login` prüft Benutzername/Passwort gegen die Benutzerdatenbank (`ADMIN_AUTH_DATABASE_URL`) und setzt danach ein signiertes Session-Cookie (`SESSION_COOKIE_NAME`, Default `session`).
+
 ## 4) Reverse-Proxy (Nginx Beispiel)
 ```nginx
 server {

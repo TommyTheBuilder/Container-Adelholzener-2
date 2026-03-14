@@ -5,6 +5,7 @@ const { Pool } = require("pg");
 const {
   createSsoResponse,
   parseCookieHeader,
+  signSsoToken,
   validateSharedSessionToken
 } = require("./sso");
 
@@ -44,6 +45,35 @@ const ADMIN_AUTH_QUERY = (() => {
   return DEFAULT_ADMIN_AUTH_QUERY.trim();
 })();
 const SESSION_COOKIE_NAME = String(process.env.SESSION_COOKIE_NAME || "session").trim();
+const LOGIN_SESSION_TTL_SECONDS = Math.max(300, Number(process.env.LOGIN_SESSION_TTL_SECONDS || 8 * 60 * 60));
+const LOGIN_SUCCESS_REDIRECT = String(process.env.LOGIN_SUCCESS_REDIRECT || "/admin.html").trim() || "/admin.html";
+const DEFAULT_LOGIN_AUTH_QUERY = `
+  SELECT
+    u.username,
+    COALESCE(
+      ARRAY_AGG(DISTINCT p.key) FILTER (WHERE p.key IS NOT NULL),
+      ARRAY[]::text[]
+    ) AS roles
+  FROM users u
+  LEFT JOIN user_roles ur ON ur.user_id = u.id
+  LEFT JOIN role_permissions rp ON rp.role_id = ur.role_id
+  LEFT JOIN permissions p ON p.id = rp.permission_id
+  WHERE LOWER(u.username) = LOWER($1)
+    AND u.password_hash = crypt($2, u.password_hash)
+  GROUP BY u.username
+  LIMIT 1
+`;
+const LOGIN_AUTH_QUERY = (() => {
+  const raw = String(process.env.LOGIN_AUTH_QUERY || "").trim();
+  if (!raw) return DEFAULT_LOGIN_AUTH_QUERY.trim();
+
+  const looksLikeSql = /^select\b/i.test(raw);
+  const hasParams = raw.includes("$1") && raw.includes("$2");
+  if (looksLikeSql && hasParams) return raw;
+
+  console.warn("Invalid LOGIN_AUTH_QUERY configured. Falling back to default query.");
+  return DEFAULT_LOGIN_AUTH_QUERY.trim();
+})();
 const SSO_TOKEN_SECRET = String(process.env.SSO_TOKEN_SECRET || SHARED_AUTH_SECRET).trim();
 const SSO_TOKEN_TTL_SECONDS = Math.max(30, Number(process.env.SSO_TOKEN_TTL_SECONDS || 120));
 const SSO_TOKEN_PARAM_NAME = String(process.env.SSO_TOKEN_PARAM_NAME || "ssoToken").trim() || "ssoToken";
@@ -83,6 +113,8 @@ const pool = new Pool(DB_CONFIG);
 const authPool = ADMIN_AUTH_DATABASE_URL ? new Pool({ connectionString: ADMIN_AUTH_DATABASE_URL, ssl: dbSsl }) : null;
 
 app.use(express.static("public"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 app.get("/", (req, res) => res.redirect("/viewer.html"));
 app.get("/health", async (req, res) => {
@@ -337,6 +369,88 @@ function parseRoles(rawRoles) {
   if (typeof rawRoles === "string") return rawRoles.split(",").map((v) => v.trim()).filter(Boolean);
   return [];
 }
+
+function createSharedSessionToken({ user, roles }) {
+  const now = Math.floor(Date.now() / 1000);
+  return signSsoToken(
+    {
+      user,
+      roles,
+      iat: now,
+      exp: now + LOGIN_SESSION_TTL_SECONDS,
+      typ: "shared-session"
+    },
+    SHARED_AUTH_SECRET
+  );
+}
+
+function isSecureRequest(req) {
+  if (String(process.env.SESSION_COOKIE_SECURE || "").trim().toLowerCase() === "true") return true;
+  const xfp = String(req.headers["x-forwarded-proto"] || "").toLowerCase();
+  return req.secure || xfp === "https";
+}
+
+function buildSessionCookie(req, token) {
+  const cookieParts = [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${LOGIN_SESSION_TTL_SECONDS}`
+  ];
+
+  if (isSecureRequest(req)) cookieParts.push("Secure");
+  return cookieParts.join("; ");
+}
+
+function buildExpiredSessionCookie(req) {
+  const cookieParts = [
+    `${SESSION_COOKIE_NAME}=`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=0"
+  ];
+
+  if (isSecureRequest(req)) cookieParts.push("Secure");
+  return cookieParts.join("; ");
+}
+
+app.post("/api/login", async (req, res) => {
+  const username = String(req.body?.username || "").trim();
+  const password = String(req.body?.password || "");
+
+  if (!username || !password) {
+    return jsonError(res, 400, "VALIDATION_ERROR", "Bitte Benutzername und Passwort angeben.");
+  }
+
+  if (!authPool) {
+    return jsonError(res, 503, "AUTH_UNAVAILABLE", "Benutzerdatenbank ist nicht konfiguriert.");
+  }
+
+  try {
+    const result = await authPool.query(LOGIN_AUTH_QUERY, [username, password]);
+    if (result.rowCount < 1) {
+      return jsonError(res, 401, "INVALID_CREDENTIALS", "Benutzername oder Passwort ist ungültig.");
+    }
+
+    const row = result.rows[0] || {};
+    const user = String(row.username || row.user || username).trim();
+    const roles = parseRoles(row.roles);
+    const token = createSharedSessionToken({ user, roles });
+
+    res.setHeader("Set-Cookie", buildSessionCookie(req, token));
+    return res.json({ ok: true, user, roles, redirectTo: LOGIN_SUCCESS_REDIRECT, expiresInSeconds: LOGIN_SESSION_TTL_SECONDS });
+  } catch (error) {
+    console.error("login failed", { message: error.message });
+    return jsonError(res, 500, "SERVER_ERROR", "Interner Fehler bei der Anmeldung.");
+  }
+});
+
+app.post("/api/logout", (req, res) => {
+  res.setHeader("Set-Cookie", buildExpiredSessionCookie(req));
+  return res.json({ ok: true });
+});
 
 function resolveSessionToken(cookieHeader) {
   const cookies = parseCookieHeader(typeof cookieHeader === "string" ? cookieHeader : "");

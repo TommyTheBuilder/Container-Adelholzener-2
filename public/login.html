@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login · Container-Anmeldung</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f4f6fa;
+      color: #1d2433;
+    }
+
+    .card {
+      width: min(420px, calc(100vw - 2rem));
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+      padding: 1.5rem;
+    }
+
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.4rem;
+    }
+
+    p {
+      margin: 0 0 1rem;
+      color: #5b6475;
+    }
+
+    .field {
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: 0.9rem;
+    }
+
+    label {
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 1rem;
+      border: 1px solid #cfd7e6;
+      border-radius: 8px;
+      padding: 0.6rem 0.7rem;
+      background: #fff;
+      color: #111;
+    }
+
+    input:focus {
+      outline: 2px solid #2878ff40;
+      border-color: #2878ff;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      padding: 0.72rem;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: #1967d2;
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .status {
+      margin-top: 0.85rem;
+      min-height: 1.1rem;
+      font-size: 0.93rem;
+      color: #c52929;
+    }
+
+    .status.ok {
+      color: #16703a;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Anmeldung</h1>
+    <p>Bitte mit deinem Benutzerkonto anmelden.</p>
+
+    <form id="loginForm" autocomplete="on">
+      <div class="field">
+        <label for="username">Benutzername</label>
+        <input id="username" name="username" type="text" required autocomplete="username" />
+      </div>
+
+      <div class="field">
+        <label for="password">Passwort</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password" />
+      </div>
+
+      <button id="submitBtn" type="submit">Einloggen</button>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+    </form>
+  </main>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusEl = document.getElementById('status');
+
+    function setStatus(message, ok = false) {
+      statusEl.textContent = message || '';
+      statusEl.classList.toggle('ok', ok);
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setStatus('');
+      submitBtn.disabled = true;
+
+      const formData = new FormData(form);
+      const payload = {
+        username: String(formData.get('username') || '').trim(),
+        password: String(formData.get('password') || '')
+      };
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+          const errMessage = data?.error?.message || 'Anmeldung fehlgeschlagen.';
+          setStatus(errMessage, false);
+          return;
+        }
+
+        setStatus('Erfolgreich angemeldet. Weiterleitung ...', true);
+        const target = typeof data.redirectTo === 'string' && data.redirectTo.trim() ? data.redirectTo : '/admin.html';
+        window.location.assign(target);
+      } catch (_error) {
+        setStatus('Netzwerkfehler bei der Anmeldung.', false);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

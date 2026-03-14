@@ -54,80 +54,83 @@ server {
 
 Danach Zertifikat z. B. mit Certbot einrichten.
 
-## SSO-Übergabe von `test.paletten-ms.de`
-Wenn der Admin-Login auf `test.paletten-ms.de/login.html` erfolgt und anschließend nach
-`.../dashboard.html` weitergeleitet wird, kann diese App die Benutzerdaten/Rechte per
-signiertem Session-Cookie übernehmen.
+## SSO aus Portal: robuste Redirect-Strategie
 
-### Serverseite konfigurieren
-- `SHARED_AUTH_SECRET`: gemeinsames Secret zwischen Dashboard und Container-App
-  - Vorgabe aktuell: `13215489156189421598412`
-- `ADMIN_AUTH_DATABASE_URL` (optional): DB-Verbindung für Berechtigungsprüfung (Default: `postgresql://palettenuser:DEIN_STARKES_PASSWORT@localhost:5432/palettenmanagement`)
-- `ADMIN_PERMISSION_KEY` (optional): Permission-Key, der `admin.html` freischaltet (Default: `integration.container_login`)
-- `ADMIN_AUTH_QUERY` (optional): **vollständige** SQL-Query mit Parametern `$1` (username), `$2` (permissionKey).
-  Beispiel: `SELECT 1 FROM users u ... WHERE LOWER(u.username)=LOWER($1) AND p.key=$2 LIMIT 1`
-  > Nicht als `\$1=username, \$2=permissionKey` setzen (das ist keine SQL-Abfrage).
+### Root Cause
+In einigen Browsern/Umgebungen wurden Session-Cookies bei Cross-Site-Navigation nicht zuverlässig mitgesendet (insbesondere bei restriktiver Cookie-Policy). Dadurch schlug die Auth-Auflösung in Zielsystemen bei rein Cookie-basierten Redirects fehl.
 
-### Cookie-Format (`session` Cookie)
-Das Cookie (Name standardmäßig `session`, optional per `SESSION_COOKIE_NAME`) hat das Format:
-`base64url(payload).base64url(hmac_sha256(payload, SHARED_AUTH_SECRET))`
+### Neue robuste Lösung
+- SSO-Endpunkte liefern jetzt **kurzlebige serverseitig signierte Redirect-Tokens** (`ssoToken`) in der Redirect-URL.
+- Auth-Auflösung am SSO-Endpunkt unterstützt **Session-Cookie und Bearer-Fallback**.
+- Einheitliche Response-Felder: `url`, `ssoToken`, `token`, `session`, `expiresInSeconds`, `authSource`, `tokenType`.
+- Strukturierte Logs ohne Secrets mit klarer Kennzeichnung der Auth-Quelle (`session_cookie` oder `bearer`).
+- Konsistent für beide Ziele:
+  - `GET /api/sso/container-session` (Container Anmeldung)
+  - `GET /api/sso/container-planning` (Container Planung)
 
-Empfohlenes Payload-JSON:
+### HTTP-Fehlercodes
+- `401`: nicht authentifiziert (`UNAUTHENTICATED`)
+- `403`: keine Berechtigung (`FORBIDDEN`)
+- `500`: Konfigurations-/Serverfehler (`CONFIG_ERROR` / `SERVER_ERROR`)
+
+Alle Fehler kommen als JSON:
 ```json
 {
-  "user": "max.mustermann",
-  "roles": ["ContainerAnmeldung"],
-  "exp": 1735689600
+  "ok": false,
+  "error": {
+    "code": "UNAUTHENTICATED",
+    "message": "Bitte erneut am Portal anmelden."
+  }
 }
 ```
 
-- `exp` ist ein Unix-Timestamp (Sekunden) und muss in der Zukunft liegen.
-- Das Session-Cookie muss gültig/signiert sein; die Freigabe für `admin.html` erfolgt anschließend über die Datenbank (`ADMIN_PERMISSION_KEY`).
+### Cookie-Konfiguration (Portal)
+Für Cross-Site-Szenarien:
+- `SameSite=None`
+- `Secure`
+- Domain nur gültig für die echte Parent-Domain (z. B. `.paletten-ms.de`), keine ungültigen Domain-Scopes
+- Klare Trennung:
+  - Portal-Auth-Cookie (Portal-intern)
+  - Externe SSO-Session-Cookies/Redirect-Tokens (zielsystembezogen)
 
+### Benötigte ENV-Variablen für SSO
+- `SHARED_AUTH_SECRET` (Validierung von Session/Bearer-Token aus Portal)
+- `SSO_TOKEN_SECRET` (Signatur der Redirect-Tokens; Fallback auf `SHARED_AUTH_SECRET`)
+- `SSO_TOKEN_TTL_SECONDS` (Default `120`)
+- `SSO_TOKEN_PARAM_NAME` (Default `ssoToken`)
+- `SSO_CONTAINER_LOGIN_URL` (Default `${BASE_URL}/driver.html`)
+- `SSO_CONTAINER_PLANNING_URL` (Default `${BASE_URL}/admin.html`)
+- `SSO_CONTAINER_LOGIN_PERMISSION_KEY` (Default `integration.container_login`)
+- `SSO_CONTAINER_PLANNING_PERMISSION_KEY` (Default `integration.container_planning`)
 
-### Berechtigung im Login-/Dashboard-Projekt anlegen
-Lege im zentralen Login-/Rechtesystem die Berechtigung **`integration.container_login`** an und ordne sie
-den Benutzern/Gruppen zu, die Zugriff auf `admin.html` erhalten sollen.
+Zusätzlich für Berechtigungsprüfung:
+- `ADMIN_AUTH_DATABASE_URL`
+- `ADMIN_AUTH_QUERY`
 
-Die Container-App prüft den Zugriff über die PostgreSQL-Datenbank `palettenmanagement` und erlaubt
-`admin.html` nur, wenn der Benutzer diese Berechtigung besitzt.
+## Beispiel-Checks (cURL)
 
-### Weiterleitung vom Dashboard zur Container-Adminseite
-Beispiel:
-`https://container.paletten-ms.de/admin.html`
+### 1) Container Anmeldung (Cookie-basiert)
+```bash
+curl -i \
+  -H 'Cookie: session=<SIGNED_PORTAL_SESSION_TOKEN>' \
+  https://container.paletten-ms.de/api/sso/container-session
+```
 
-Hinweis: Die Authentifizierung läuft ausschließlich über das signierte Session-Cookie (keine Token in der URL).
+### 2) Container Planung (Bearer-Fallback)
+```bash
+curl -i \
+  -H 'Authorization: Bearer <SIGNED_PORTAL_SESSION_TOKEN>' \
+  https://container.paletten-ms.de/api/sso/container-planning
+```
 
+### 3) Ohne Auth (erwartet 401)
+```bash
+curl -i https://container.paletten-ms.de/api/sso/container-session
+```
 
-
-### Codex-Befehl für das andere Projekt
-Nutze im Login-/Dashboard-Projekt diesen Prompt für Codex (1:1 kopieren):
-
-```text
-Bitte implementiere eine SSO-Weitergabe zur Container-App mit signiertem Session-Cookie.
-
-Ziel:
-- Beim Login auf test.paletten-ms.de/login.html und Weiterleitung auf dashboard.html soll vor dem Aufruf der Container-App ein signiertes Session-Cookie gesetzt werden.
-- Die Container-App akzeptiert nur Benutzer mit der Berechtigung `integration.container_login` (per DB-Check).
-
-Anforderungen:
-1) Lege (falls noch nicht vorhanden) die Berechtigung `integration.container_login` im Rechtesystem an und weise sie den berechtigten Nutzern/Gruppen zu.
-2) Erzeuge ein JSON-Payload mit:
-   - `user`: Benutzername
-   - `roles`: Array aller Rechte/Rollen
-   - `exp`: aktueller Unix-Zeitstempel + 300 Sekunden
-3) Signiere `base64url(payload)` per HMAC-SHA256 mit dem Shared Secret (gleich wie `SHARED_AUTH_SECRET` der Container-App).
-4) Tokenformat (Cookie-Wert): `base64url(payload).base64url(signature)`
-5) Setze den Token als Cookie (Name `session`, alternativ abgestimmt `SESSION_COOKIE_NAME`) mit sicheren Flags:
-   - `HttpOnly`
-   - `Secure`
-   - `SameSite=Lax` (oder `Strict`, falls euer Flow das zulässt)
-   - `Domain=.paletten-ms.de`
-   - `Path=/`
-   - `Max-Age=300`
-6) Verlinke anschließend ohne Query-Token auf:
-   `https://container.paletten-ms.de/admin.html`
-7) Achte darauf, dass der Benutzer die Berechtigung `integration.container_login` besitzt; sonst keinen Admin-Link anzeigen.
-
-Bitte liefere den finalen Code inkl. kurzer Security-Hinweise (TTL, Secret-Handling, kein Logging des Tokens, Cookie-Flags).
+### 4) Falsche Berechtigung (erwartet 403)
+```bash
+curl -i \
+  -H 'Cookie: session=<TOKEN_OHNE_PERMISSION>' \
+  https://container.paletten-ms.de/api/sso/container-planning
 ```

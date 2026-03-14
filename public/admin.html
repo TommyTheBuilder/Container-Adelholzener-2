@@ -451,7 +451,8 @@ body.dark .toast{
         <div class="settingsMenu" id="settingsMenu" role="menu">
           <a class="menuItem menuItemLink darkSection" href="/admin.html">Admin</a>
           <button class="menuItem lightSection" type="button" id="changePasswordBtn">Passwort ändern</button>
-          <a class="menuItem menuItemLink lightSection" href="/driver.html">Container Anmeldung</a>
+          <button class="menuItem lightSection" type="button" id="openContainerLoginBtn">Container Anmeldung</button>
+          <button class="menuItem lightSection" type="button" id="openContainerPlanningBtn">Container Planung</button>
           <button class="menuItem lightSection" type="button" id="darkmodeToggle">Darkmode umschalten</button>
           <a class="menuItem menuItemLink lightSection" id="dashboardLink" href="https://test.paletten-ms.de/public/dashboard.html">Modul-Dashboard</a>
           <button class="menuItem darkSection" type="button" id="logoutBtn">Logout</button>
@@ -533,6 +534,7 @@ let current = {};
 let isAuthed = false;
 let currentUser = "";
 let themeStorageKey = "admin-theme";
+let ssoRedirectInFlight = false;
 
 function applyTheme(theme){
   const isDark = theme === "dark";
@@ -599,6 +601,35 @@ function showToast(msg){
   t.style.display = "block";
   clearTimeout(showToast._to);
   showToast._to = setTimeout(()=> t.style.display="none", 2200);
+}
+
+async function openSsoTarget(endpoint) {
+  if (ssoRedirectInFlight) return;
+  ssoRedirectInFlight = true;
+  toggleSettingsMenu(false);
+
+  const loginBtn = document.getElementById("openContainerLoginBtn");
+  const planningBtn = document.getElementById("openContainerPlanningBtn");
+  if (loginBtn) loginBtn.disabled = true;
+  if (planningBtn) planningBtn.disabled = true;
+
+  try {
+    const response = await fetch(endpoint, { method: "GET", credentials: "include" });
+    const data = await response.json();
+
+    if (!response.ok || !data?.url) {
+      showToast(data?.error?.message || "Weiterleitung fehlgeschlagen.");
+      return;
+    }
+
+    window.location.href = data.url;
+  } catch (_error) {
+    showToast("Netzwerkfehler bei der Weiterleitung.");
+  } finally {
+    ssoRedirectInFlight = false;
+    if (loginBtn) loginBtn.disabled = false;
+    if (planningBtn) planningBtn.disabled = false;
+  }
 }
 
 function renderAll(){
@@ -924,6 +955,14 @@ document.getElementById("changePasswordBtn").addEventListener("click", () => {
 
 document.getElementById("dashboardLink").addEventListener("click", () => {
   toggleSettingsMenu(false);
+});
+
+document.getElementById("openContainerLoginBtn").addEventListener("click", () => {
+  openSsoTarget("/api/sso/container-session");
+});
+
+document.getElementById("openContainerPlanningBtn").addEventListener("click", () => {
+  openSsoTarget("/api/sso/container-planning");
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {

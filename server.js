@@ -2,7 +2,11 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const { Pool } = require("pg");
-const crypto = require("crypto");
+const {
+  createSsoResponse,
+  parseCookieHeader,
+  validateSharedSessionToken
+} = require("./sso");
 
 const app = express();
 const server = http.createServer(app);
@@ -40,6 +44,17 @@ const ADMIN_AUTH_QUERY = (() => {
   return DEFAULT_ADMIN_AUTH_QUERY.trim();
 })();
 const SESSION_COOKIE_NAME = String(process.env.SESSION_COOKIE_NAME || "session").trim();
+const SSO_TOKEN_SECRET = String(process.env.SSO_TOKEN_SECRET || SHARED_AUTH_SECRET).trim();
+const SSO_TOKEN_TTL_SECONDS = Math.max(30, Number(process.env.SSO_TOKEN_TTL_SECONDS || 120));
+const SSO_TOKEN_PARAM_NAME = String(process.env.SSO_TOKEN_PARAM_NAME || "ssoToken").trim() || "ssoToken";
+const SSO_CONTAINER_LOGIN_URL = String(process.env.SSO_CONTAINER_LOGIN_URL || `${BASE_URL}/driver.html`).trim();
+const SSO_CONTAINER_PLANNING_URL = String(process.env.SSO_CONTAINER_PLANNING_URL || `${BASE_URL}/admin.html`).trim();
+const SSO_CONTAINER_LOGIN_PERMISSION_KEY = String(
+  process.env.SSO_CONTAINER_LOGIN_PERMISSION_KEY || "integration.container_login"
+).trim();
+const SSO_CONTAINER_PLANNING_PERMISSION_KEY = String(
+  process.env.SSO_CONTAINER_PLANNING_PERMISSION_KEY || "integration.container_planning"
+).trim();
 
 const rawDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
 const hasDatabaseUrl = rawDatabaseUrl.length > 0;
@@ -317,76 +332,10 @@ function historyToCSV(entries) {
 }
 
 
-function decodeBase64Url(input) {
-  if (!input) return "";
-  const normalized = String(input).replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-  return Buffer.from(padded, "base64").toString("utf8");
-}
-
 function parseRoles(rawRoles) {
   if (Array.isArray(rawRoles)) return rawRoles.map((v) => String(v).trim()).filter(Boolean);
   if (typeof rawRoles === "string") return rawRoles.split(",").map((v) => v.trim()).filter(Boolean);
   return [];
-}
-
-function parseCookieHeader(cookieHeader) {
-  const cookies = {};
-  if (!cookieHeader || typeof cookieHeader !== "string") return cookies;
-
-  for (const part of cookieHeader.split(";")) {
-    const segment = String(part || "").trim();
-    if (!segment) continue;
-    const idx = segment.indexOf("=");
-    if (idx <= 0) continue;
-    const name = segment.slice(0, idx).trim();
-    const value = segment.slice(idx + 1).trim();
-    if (!name) continue;
-    cookies[name] = decodeURIComponent(value);
-  }
-
-  return cookies;
-}
-
-function validateSharedSessionToken(token) {
-  if (!SHARED_AUTH_SECRET || !token || typeof token !== "string") {
-    return { ok: false };
-  }
-
-  const parts = token.split(".");
-  if (parts.length !== 2) return { ok: false };
-
-  const [payloadPart, signaturePart] = parts;
-  const expectedSig = crypto
-    .createHmac("sha256", SHARED_AUTH_SECRET)
-    .update(payloadPart)
-    .digest("base64url");
-
-  const expectedBuffer = Buffer.from(expectedSig);
-  const receivedBuffer = Buffer.from(signaturePart);
-  if (expectedBuffer.length !== receivedBuffer.length) return { ok: false };
-  if (!crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) return { ok: false };
-
-  let payload;
-  try {
-    payload = JSON.parse(decodeBase64Url(payloadPart));
-  } catch (_error) {
-    return { ok: false };
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  const exp = Number(payload?.exp || 0);
-  if (!Number.isInteger(exp) || exp <= now) return { ok: false };
-
-  const roles = parseRoles(payload?.roles);
-  const user = String(payload?.user || payload?.username || "").trim();
-  if (!user) return { ok: false };
-
-  return {
-    ok: true,
-    user,
-    roles
-  };
 }
 
 async function hasAdminPermission(user) {
@@ -413,15 +362,137 @@ function resolveSessionToken(cookieHeader) {
   return String(cookies.token || "").trim();
 }
 
+function resolveBearerToken(authorizationHeader) {
+  if (!authorizationHeader || typeof authorizationHeader !== "string") return "";
+  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? String(match[1] || "").trim() : "";
+}
+
+async function hasPermission(user, permissionKey) {
+  if (!permissionKey) return true;
+  if (!authPool || !user) return false;
+  try {
+    const result = await authPool.query(ADMIN_AUTH_QUERY, [user, permissionKey]);
+    return result.rowCount > 0;
+  } catch (error) {
+    console.error("permission query failed", { message: error.message, permissionKey });
+    return false;
+  }
+}
+
+async function resolveContainerAccess(req, permissionKey) {
+  const sessionToken = resolveSessionToken(req.headers.cookie || "");
+  const bearerToken = resolveBearerToken(req.headers.authorization || "");
+
+  const sessionAuth = validateSharedSessionToken(sessionToken, SHARED_AUTH_SECRET);
+  if (sessionAuth.ok) {
+    const allowed = await hasPermission(sessionAuth.user, permissionKey);
+    if (allowed) return { ok: true, source: "session_cookie", user: sessionAuth.user, roles: sessionAuth.roles };
+    return { ok: false, status: 403, code: "FORBIDDEN", message: "Keine Berechtigung für dieses Zielsystem." };
+  }
+
+  const bearerAuth = validateSharedSessionToken(bearerToken, SHARED_AUTH_SECRET);
+  if (bearerAuth.ok) {
+    const allowed = await hasPermission(bearerAuth.user, permissionKey);
+    if (allowed) return { ok: true, source: "bearer", user: bearerAuth.user, roles: bearerAuth.roles };
+    return { ok: false, status: 403, code: "FORBIDDEN", message: "Keine Berechtigung für dieses Zielsystem." };
+  }
+
+  return { ok: false, status: 401, code: "UNAUTHENTICATED", message: "Bitte erneut am Portal anmelden." };
+}
+
+function validateSsoConfiguration(targetUrl) {
+  if (!SSO_TOKEN_SECRET) {
+    return { ok: false, status: 500, code: "CONFIG_ERROR", message: "SSO_TOKEN_SECRET ist nicht gesetzt." };
+  }
+  try {
+    const parsed = new URL(targetUrl);
+    if (parsed.protocol !== "https:") {
+      return { ok: false, status: 500, code: "CONFIG_ERROR", message: "SSO-Ziel-URL muss HTTPS verwenden." };
+    }
+  } catch (_error) {
+    return { ok: false, status: 500, code: "CONFIG_ERROR", message: "SSO-Ziel-URL ist ungültig konfiguriert." };
+  }
+  return { ok: true };
+}
+
+function jsonError(res, status, code, message) {
+  return res.status(status).json({ ok: false, error: { code, message } });
+}
+
+async function handleSsoRequest(req, res, config) {
+  const auth = await resolveContainerAccess(req, config.permissionKey);
+  if (!auth.ok) {
+    console.info(JSON.stringify({ event: "sso.redirect.denied", endpoint: req.path, status: auth.status, code: auth.code }));
+    return jsonError(res, auth.status, auth.code, auth.message);
+  }
+
+  const cfgCheck = validateSsoConfiguration(config.targetUrl);
+  if (!cfgCheck.ok) {
+    console.error(JSON.stringify({ event: "sso.redirect.config_error", endpoint: req.path, code: cfgCheck.code }));
+    return jsonError(res, cfgCheck.status, cfgCheck.code, cfgCheck.message);
+  }
+
+  const payload = createSsoResponse({
+    targetUrl: config.targetUrl,
+    tokenTtlSeconds: SSO_TOKEN_TTL_SECONDS,
+    tokenSecret: SSO_TOKEN_SECRET,
+    tokenParamName: SSO_TOKEN_PARAM_NAME,
+    user: auth.user,
+    authSource: auth.source
+  });
+
+  console.info(JSON.stringify({
+    event: "sso.redirect.success",
+    endpoint: req.path,
+    authSource: auth.source,
+    user: auth.user,
+    target: config.target,
+    ttlSeconds: SSO_TOKEN_TTL_SECONDS
+  }));
+
+  return res.json({
+    ...payload,
+    target: config.target,
+    tokenParam: SSO_TOKEN_PARAM_NAME
+  });
+}
+
 async function resolveAdminAccess(cookieHeader = "") {
   const session = resolveSessionToken(cookieHeader);
-  const validated = validateSharedSessionToken(session);
+  const validated = validateSharedSessionToken(session, SHARED_AUTH_SECRET);
   if (validated.ok && await hasAdminPermission(validated.user)) {
     return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
   }
 
   return { ok: false, source: "none", user: "", roles: [] };
 }
+
+app.get("/api/sso/container-session", async (req, res) => {
+  try {
+    return await handleSsoRequest(req, res, {
+      target: "container-session",
+      targetUrl: SSO_CONTAINER_LOGIN_URL,
+      permissionKey: SSO_CONTAINER_LOGIN_PERMISSION_KEY
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "sso.redirect.exception", endpoint: req.path, message: error.message }));
+    return jsonError(res, 500, "SERVER_ERROR", "Interner Fehler bei der SSO-Weiterleitung.");
+  }
+});
+
+app.get("/api/sso/container-planning", async (req, res) => {
+  try {
+    return await handleSsoRequest(req, res, {
+      target: "container-planning",
+      targetUrl: SSO_CONTAINER_PLANNING_URL,
+      permissionKey: SSO_CONTAINER_PLANNING_PERMISSION_KEY
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "sso.redirect.exception", endpoint: req.path, message: error.message }));
+    return jsonError(res, 500, "SERVER_ERROR", "Interner Fehler bei der SSO-Weiterleitung.");
+  }
+});
 
 let containers = {};
 

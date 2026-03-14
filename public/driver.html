@@ -339,6 +339,9 @@ body.dark .sub { color: rgba(255,255,255,.85); }
 <script>
 const socket = io();
 const DASHBOARD_URL = "https://test.paletten-ms.de/public/dashboard.html";
+const queryParams = new URLSearchParams(window.location.search);
+const session = String(queryParams.get("session") || queryParams.get("token") || "").trim();
+const user = String(queryParams.get("user") || "").trim();
 let state = null;
 let selectedId = null;
 
@@ -348,6 +351,14 @@ const msgEl = document.getElementById("msg");
 const btnEl = document.getElementById("sendBtn");
 const selInfoEl = document.getElementById("selInfo");
 let currentLang = localStorage.getItem("driverLang") || "de";
+
+const dashboardLinkEl = document.getElementById("dashboardLink");
+if (dashboardLinkEl) {
+  const target = new URL(DASHBOARD_URL);
+  if (session) target.searchParams.set("session", session);
+  if (user) target.searchParams.set("user", user);
+  dashboardLinkEl.href = target.toString();
+}
 
 function applyTheme(theme) {
   const isDark = theme === "dark";
@@ -621,7 +632,7 @@ document.getElementById("changePasswordBtn").addEventListener("click", () => {
 document.getElementById("dashboardLink").addEventListener("click", (event) => {
   event.preventDefault();
   toggleSettingsMenu(false);
-  window.location.href = DASHBOARD_URL;
+  window.location.href = dashboardLinkEl?.href || DASHBOARD_URL;
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {

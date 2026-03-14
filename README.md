@@ -93,7 +93,6 @@ Beispiel:
 
 Hinweis: Für die Weiterleitung werden nur `session` und `user` verwendet (keine IP-Parameter).
 
-Alternativ funktioniert weiterhin `?key=ADMIN_KEY` für Legacy-Setups.
 
 
 ### Codex-Befehl für das andere Projekt

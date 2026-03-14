@@ -65,7 +65,7 @@ signiertem Session-Token übernehmen.
 - `ADMIN_ROLE` (optional): Rollenname, der als Admin gilt (Default: `ContainerAnmeldung`)
 
 ### Token-Format (`session` Query-Parameter)
-Der Parameter `session` hat das Format:
+Der Parameter `session` (alternativ kompatibel auch `token`) hat das Format:
 `base64url(payload).base64url(hmac_sha256(payload, SHARED_AUTH_SECRET))`
 
 Empfohlenes Payload-JSON:
@@ -92,6 +92,7 @@ Beispiel:
 `https://container.paletten-ms.de/admin.html?session=<TOKEN>&user=<USERNAME>`
 
 Hinweis: Für die Weiterleitung werden nur `session` und `user` verwendet (keine IP-Parameter).
+Bestehende Links mit `?token=` werden weiterhin als Alias akzeptiert.
 
 
 

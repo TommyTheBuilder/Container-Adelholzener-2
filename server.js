@@ -343,7 +343,15 @@ function validateSharedSessionToken(token) {
   };
 }
 
-function resolveAdminAccess({ session }) {
+function resolveSessionToken(input) {
+  if (!input || typeof input !== "object") return "";
+  const session = String(input.session || "").trim();
+  if (session) return session;
+  return String(input.token || "").trim();
+}
+
+function resolveAdminAccess(input = {}) {
+  const session = resolveSessionToken(input);
   const validated = validateSharedSessionToken(session);
   if (validated.ok) {
     return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
@@ -360,7 +368,7 @@ function emitOne(id) {
 
 app.get("/admin-history.csv", async (req, res) => {
   try {
-    const auth = resolveAdminAccess({ session: req.query.session });
+    const auth = resolveAdminAccess(req.query || {});
     if (!auth.ok) return res.status(403).send("Forbidden");
 
     const entries = await getHistory(1000);

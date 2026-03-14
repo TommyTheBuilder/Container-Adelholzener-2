@@ -26,7 +26,7 @@
 
   const __design = new URLSearchParams(location.search).get("design");
   const __params = new URLSearchParams(location.search);
-  const __sessionPayload = decodeSessionPayload(__params.get("session") || "");
+  const __sessionPayload = decodeSessionPayload(__params.get("session") || __params.get("token") || "");
   const __themeUser = String(__params.get("user") || __sessionPayload?.user || __sessionPayload?.username || "").trim();
   const __themeStorageKey = resolveThemeStorageKey(__themeUser);
   document.documentElement.dataset.design = __design === "2" ? "2" : "1";
@@ -500,7 +500,7 @@ body.dark .toast{
   <div class="wrap">
     <div id="authBlock" class="block" style="display:none">
       <div style="font-weight:950; font-size:16px;">Kein Admin-Zugriff</div>
-      <div class="note">Öffne mit einem signierten Session-Token via <b>?session=...</b>.</div>
+      <div class="note">Öffne mit einem signierten Session-Token via <b>?session=...</b> (oder Legacy <b>?token=...</b>).</div>
     </div>
 
     <div id="grid" class="grid" style="display:none"></div>
@@ -567,7 +567,7 @@ function toggleSettingsMenu(force) {
 }
 
 const params = new URLSearchParams(location.search);
-const session = params.get("session") || "";
+const session = params.get("session") || params.get("token") || "";
 const sessionPayload = decodeSessionPayload(session);
 const user = String(params.get("user") || sessionPayload?.user || sessionPayload?.username || "").trim();
 themeStorageKey = resolveThemeStorageKey(user);

@@ -409,18 +409,13 @@ let audioContext = null;
 let currentLang = localStorage.getItem("viewerLang") || "de";
 let currentState = null;
 const queryParams = new URLSearchParams(window.location.search);
-const session = String(queryParams.get("session") || queryParams.get("token") || "").trim();
-const user = String(queryParams.get("user") || "").trim();
 const filteredPlate = String(queryParams.get("plate") || "").trim().toUpperCase();
 const filteredSlot = Number(queryParams.get("slot"));
 let focusedContainerId = Number.isInteger(filteredSlot) && filteredSlot >= 1 && filteredSlot <= 8 ? filteredSlot : null;
 
 const dashboardLinkEl = document.getElementById("dashboardLink");
 if (dashboardLinkEl) {
-  const target = new URL(DASHBOARD_URL);
-  if (session) target.searchParams.set("session", session);
-  if (user) target.searchParams.set("user", user);
-  dashboardLinkEl.href = target.toString();
+  dashboardLinkEl.href = DASHBOARD_URL;
 }
 
 const I18N = {

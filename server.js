@@ -14,6 +14,7 @@ const HISTORY_MAX = Number(process.env.HISTORY_MAX || 5000);
 const BASE_URL = process.env.BASE_URL || "https://container.paletten-ms.de";
 const SHARED_AUTH_SECRET = String(process.env.SHARED_AUTH_SECRET || "13215489156189421598412").trim();
 const ADMIN_ROLE = String(process.env.ADMIN_ROLE || "ContainerAnmeldung").trim();
+const SESSION_COOKIE_NAME = String(process.env.SESSION_COOKIE_NAME || "session").trim();
 
 const rawDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
 const hasDatabaseUrl = rawDatabaseUrl.length > 0;
@@ -303,6 +304,24 @@ function parseRoles(rawRoles) {
   return [];
 }
 
+function parseCookieHeader(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader || typeof cookieHeader !== "string") return cookies;
+
+  for (const part of cookieHeader.split(";")) {
+    const segment = String(part || "").trim();
+    if (!segment) continue;
+    const idx = segment.indexOf("=");
+    if (idx <= 0) continue;
+    const name = segment.slice(0, idx).trim();
+    const value = segment.slice(idx + 1).trim();
+    if (!name) continue;
+    cookies[name] = decodeURIComponent(value);
+  }
+
+  return cookies;
+}
+
 function validateSharedSessionToken(token) {
   if (!SHARED_AUTH_SECRET || !token || typeof token !== "string") {
     return { ok: false };
@@ -345,6 +364,18 @@ function validateSharedSessionToken(token) {
 
 function resolveSessionToken(input) {
   if (!input || typeof input !== "object") return "";
+  const cookieHeader = typeof input.cookieHeader === "string" ? input.cookieHeader : "";
+  const cookies = parseCookieHeader(cookieHeader);
+
+  const fromConfiguredCookie = String(cookies[SESSION_COOKIE_NAME] || "").trim();
+  if (fromConfiguredCookie) return fromConfiguredCookie;
+
+  const fromLegacySessionCookie = String(cookies.session || "").trim();
+  if (fromLegacySessionCookie) return fromLegacySessionCookie;
+
+  const fromLegacyTokenCookie = String(cookies.token || "").trim();
+  if (fromLegacyTokenCookie) return fromLegacyTokenCookie;
+
   const session = String(input.session || "").trim();
   if (session) return session;
   return String(input.token || "").trim();
@@ -368,7 +399,10 @@ function emitOne(id) {
 
 app.get("/admin-history.csv", async (req, res) => {
   try {
-    const auth = resolveAdminAccess(req.query || {});
+    const auth = resolveAdminAccess({
+      ...(req.query || {}),
+      cookieHeader: req.headers.cookie || ""
+    });
     if (!auth.ok) return res.status(403).send("Forbidden");
 
     const entries = await getHistory(1000);
@@ -387,7 +421,10 @@ io.on("connection", (socket) => {
   socket.emit("init", containers);
 
   socket.on("adminAuth", (payload = {}) => {
-    const auth = resolveAdminAccess(payload || {});
+    const auth = resolveAdminAccess({
+      ...(payload || {}),
+      cookieHeader: socket.handshake.headers.cookie || ""
+    });
     if (auth.ok) {
       socket.data.isAdmin = true;
       socket.data.adminUser = auth.user || "";

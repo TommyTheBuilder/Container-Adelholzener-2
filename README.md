@@ -57,15 +57,15 @@ Danach Zertifikat z. B. mit Certbot einrichten.
 ## SSO-Übergabe von `test.paletten-ms.de`
 Wenn der Admin-Login auf `test.paletten-ms.de/login.html` erfolgt und anschließend nach
 `.../dashboard.html` weitergeleitet wird, kann diese App die Benutzerdaten/Rechte per
-signiertem Session-Token übernehmen.
+signiertem Session-Cookie übernehmen.
 
 ### Serverseite konfigurieren
 - `SHARED_AUTH_SECRET`: gemeinsames Secret zwischen Dashboard und Container-App
   - Vorgabe aktuell: `13215489156189421598412`
 - `ADMIN_ROLE` (optional): Rollenname, der als Admin gilt (Default: `ContainerAnmeldung`)
 
-### Token-Format (`session` Query-Parameter)
-Der Parameter `session` (alternativ kompatibel auch `token`) hat das Format:
+### Cookie-Format (`session` Cookie)
+Das Cookie (Name standardmäßig `session`, optional per `SESSION_COOKIE_NAME`) hat das Format:
 `base64url(payload).base64url(hmac_sha256(payload, SHARED_AUTH_SECRET))`
 
 Empfohlenes Payload-JSON:
@@ -87,12 +87,11 @@ den Benutzern/Gruppen zu, die Zugriff auf `admin.html` erhalten sollen.
 
 Nur wenn das Session-Token die Rolle `ContainerAnmeldung` enthält, wird der Zugriff erlaubt.
 
-### Link vom Dashboard zur Container-Adminseite
+### Weiterleitung vom Dashboard zur Container-Adminseite
 Beispiel:
-`https://container.paletten-ms.de/admin.html?session=<TOKEN>&user=<USERNAME>`
+`https://container.paletten-ms.de/admin.html`
 
-Hinweis: Für die Weiterleitung werden nur `session` und `user` verwendet (keine IP-Parameter).
-Bestehende Links mit `?token=` werden weiterhin als Alias akzeptiert.
+Hinweis: Das signierte Session-Token wird ausschließlich per Cookie übertragen (keine Token in der URL).
 
 
 
@@ -100,10 +99,10 @@ Bestehende Links mit `?token=` werden weiterhin als Alias akzeptiert.
 Nutze im Login-/Dashboard-Projekt diesen Prompt für Codex (1:1 kopieren):
 
 ```text
-Bitte implementiere eine SSO-Weitergabe zur Container-App mit signiertem Session-Token.
+Bitte implementiere eine SSO-Weitergabe zur Container-App mit signiertem Session-Cookie.
 
 Ziel:
-- Beim Login auf test.paletten-ms.de/login.html und Weiterleitung auf dashboard.html soll beim Link zur Container-Adminseite ein `session` und `user` Query-Parameter erzeugt werden.
+- Beim Login auf test.paletten-ms.de/login.html und Weiterleitung auf dashboard.html soll vor dem Aufruf der Container-App ein signiertes Session-Cookie gesetzt werden.
 - Die Container-App akzeptiert nur Benutzer mit der Berechtigung `ContainerAnmeldung`.
 
 Anforderungen:
@@ -113,11 +112,17 @@ Anforderungen:
    - `roles`: Array aller Rechte/Rollen
    - `exp`: aktueller Unix-Zeitstempel + 300 Sekunden
 3) Signiere `base64url(payload)` per HMAC-SHA256 mit dem Shared Secret (gleich wie `SHARED_AUTH_SECRET` der Container-App).
-4) Tokenformat: `base64url(payload).base64url(signature)`
-5) Verlinke auf:
-   `https://container.paletten-ms.de/admin.html?session=<TOKEN>&user=<USERNAME>`
-6) Nutze für die Weiterleitung nur `session` und `user` (keine IP-basierten Parameter).
+4) Tokenformat (Cookie-Wert): `base64url(payload).base64url(signature)`
+5) Setze den Token als Cookie (Name `session`, alternativ abgestimmt `SESSION_COOKIE_NAME`) mit sicheren Flags:
+   - `HttpOnly`
+   - `Secure`
+   - `SameSite=Lax` (oder `Strict`, falls euer Flow das zulässt)
+   - `Domain=.paletten-ms.de`
+   - `Path=/`
+   - `Max-Age=300`
+6) Verlinke anschließend ohne Query-Token auf:
+   `https://container.paletten-ms.de/admin.html`
 7) Achte darauf, dass `roles` den Eintrag `ContainerAnmeldung` enthält; sonst keinen Admin-Link anzeigen.
 
-Bitte liefere den finalen Code inkl. kurzer Security-Hinweise (TTL, Secret-Handling, kein Logging des Tokens).
+Bitte liefere den finalen Code inkl. kurzer Security-Hinweise (TTL, Secret-Handling, kein Logging des Tokens, Cookie-Flags).
 ```

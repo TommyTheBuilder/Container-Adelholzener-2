@@ -288,12 +288,7 @@ body.dark .sub { color: rgba(255,255,255,.85); }
       <div class="settingsWrap">
         <button class="iconBtn" id="settingsToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Einstellungen">⚙️</button>
         <div class="settingsMenu" id="settingsMenu" role="menu">
-          <a class="menuItem menuItemLink darkSection" href="/admin.html">Admin</a>
-          <button class="menuItem lightSection" type="button" id="changePasswordBtn">Passwort ändern</button>
-          <a class="menuItem menuItemLink lightSection" href="/driver.html">Container Anmeldung</a>
-          <button class="menuItem lightSection" type="button" id="darkmodeToggle">Darkmode umschalten</button>
-          <a class="menuItem menuItemLink lightSection" id="dashboardLink" href="https://test.paletten-ms.de/public/dashboard.html">Modul-Dashboard</a>
-          <button class="menuItem darkSection" type="button" id="logoutBtn">Logout</button>
+          <button class="menuItem darkSection" type="button" id="darkmodeToggle">Darkmode umschalten</button>
         </div>
       </div>
     </div>
@@ -338,10 +333,6 @@ body.dark .sub { color: rgba(255,255,255,.85); }
 
 <script>
 const socket = io();
-const DASHBOARD_URL = "https://test.paletten-ms.de/public/dashboard.html";
-const queryParams = new URLSearchParams(window.location.search);
-const session = String(queryParams.get("session") || queryParams.get("token") || "").trim();
-const user = String(queryParams.get("user") || "").trim();
 let state = null;
 let selectedId = null;
 
@@ -351,14 +342,6 @@ const msgEl = document.getElementById("msg");
 const btnEl = document.getElementById("sendBtn");
 const selInfoEl = document.getElementById("selInfo");
 let currentLang = localStorage.getItem("driverLang") || "de";
-
-const dashboardLinkEl = document.getElementById("dashboardLink");
-if (dashboardLinkEl) {
-  const target = new URL(DASHBOARD_URL);
-  if (session) target.searchParams.set("session", session);
-  if (user) target.searchParams.set("user", user);
-  dashboardLinkEl.href = target.toString();
-}
 
 function applyTheme(theme) {
   const isDark = theme === "dark";
@@ -622,29 +605,6 @@ document.getElementById("darkmodeToggle").addEventListener("click", () => {
   const nextTheme = document.body.classList.contains("dark") ? "light" : "dark";
   applyTheme(nextTheme);
   toggleSettingsMenu(false);
-});
-
-document.getElementById("changePasswordBtn").addEventListener("click", () => {
-  toggleSettingsMenu(false);
-  window.location.href = "/change-password.html";
-});
-
-document.getElementById("dashboardLink").addEventListener("click", (event) => {
-  event.preventDefault();
-  toggleSettingsMenu(false);
-  window.location.href = dashboardLinkEl?.href || DASHBOARD_URL;
-});
-
-document.getElementById("logoutBtn").addEventListener("click", async () => {
-  try {
-    await fetch("/logout", { method: "POST", credentials: "include" });
-  } catch (error) {
-    console.warn("Logout endpoint nicht erreichbar:", error);
-  }
-  localStorage.removeItem("driver-theme");
-  localStorage.removeItem("driverLang");
-  toggleSettingsMenu(false);
-  window.location.href = "/";
 });
 
 document.addEventListener("click", (event) => {

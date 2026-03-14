@@ -89,7 +89,9 @@ Nur wenn das Session-Token die Rolle `ContainerAnmeldung` enthält, wird der Zug
 
 ### Link vom Dashboard zur Container-Adminseite
 Beispiel:
-`https://container.paletten-ms.de/admin.html?session=<TOKEN>`
+`https://container.paletten-ms.de/admin.html?session=<TOKEN>&user=<USERNAME>`
+
+Hinweis: Für die Weiterleitung werden nur `session` und `user` verwendet (keine IP-Parameter).
 
 Alternativ funktioniert weiterhin `?key=ADMIN_KEY` für Legacy-Setups.
 
@@ -101,7 +103,7 @@ Nutze im Login-/Dashboard-Projekt diesen Prompt für Codex (1:1 kopieren):
 Bitte implementiere eine SSO-Weitergabe zur Container-App mit signiertem Session-Token.
 
 Ziel:
-- Beim Login auf test.paletten-ms.de/login.html und Weiterleitung auf dashboard.html soll beim Link zur Container-Adminseite ein `session` Query-Parameter erzeugt werden.
+- Beim Login auf test.paletten-ms.de/login.html und Weiterleitung auf dashboard.html soll beim Link zur Container-Adminseite ein `session` und `user` Query-Parameter erzeugt werden.
 - Die Container-App akzeptiert nur Benutzer mit der Berechtigung `ContainerAnmeldung`.
 
 Anforderungen:
@@ -113,8 +115,9 @@ Anforderungen:
 3) Signiere `base64url(payload)` per HMAC-SHA256 mit dem Shared Secret (gleich wie `SHARED_AUTH_SECRET` der Container-App).
 4) Tokenformat: `base64url(payload).base64url(signature)`
 5) Verlinke auf:
-   `https://container.paletten-ms.de/admin.html?session=<TOKEN>`
-6) Achte darauf, dass `roles` den Eintrag `ContainerAnmeldung` enthält; sonst keinen Admin-Link anzeigen.
+   `https://container.paletten-ms.de/admin.html?session=<TOKEN>&user=<USERNAME>`
+6) Nutze für die Weiterleitung nur `session` und `user` (keine IP-basierten Parameter).
+7) Achte darauf, dass `roles` den Eintrag `ContainerAnmeldung` enthält; sonst keinen Admin-Link anzeigen.
 
 Bitte liefere den finalen Code inkl. kurzer Security-Hinweise (TTL, Secret-Handling, kein Logging des Tokens).
 ```

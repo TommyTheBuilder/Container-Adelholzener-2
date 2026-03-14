@@ -362,10 +362,8 @@ function validateSharedSessionToken(token) {
   };
 }
 
-function resolveSessionToken(input) {
-  if (!input || typeof input !== "object") return "";
-  const cookieHeader = typeof input.cookieHeader === "string" ? input.cookieHeader : "";
-  const cookies = parseCookieHeader(cookieHeader);
+function resolveSessionToken(cookieHeader) {
+  const cookies = parseCookieHeader(typeof cookieHeader === "string" ? cookieHeader : "");
 
   const fromConfiguredCookie = String(cookies[SESSION_COOKIE_NAME] || "").trim();
   if (fromConfiguredCookie) return fromConfiguredCookie;
@@ -373,16 +371,11 @@ function resolveSessionToken(input) {
   const fromLegacySessionCookie = String(cookies.session || "").trim();
   if (fromLegacySessionCookie) return fromLegacySessionCookie;
 
-  const fromLegacyTokenCookie = String(cookies.token || "").trim();
-  if (fromLegacyTokenCookie) return fromLegacyTokenCookie;
-
-  const session = String(input.session || "").trim();
-  if (session) return session;
-  return String(input.token || "").trim();
+  return String(cookies.token || "").trim();
 }
 
-function resolveAdminAccess(input = {}) {
-  const session = resolveSessionToken(input);
+function resolveAdminAccess(cookieHeader = "") {
+  const session = resolveSessionToken(cookieHeader);
   const validated = validateSharedSessionToken(session);
   if (validated.ok) {
     return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
@@ -399,10 +392,7 @@ function emitOne(id) {
 
 app.get("/admin-history.csv", async (req, res) => {
   try {
-    const auth = resolveAdminAccess({
-      ...(req.query || {}),
-      cookieHeader: req.headers.cookie || ""
-    });
+    const auth = resolveAdminAccess(req.headers.cookie || "");
     if (!auth.ok) return res.status(403).send("Forbidden");
 
     const entries = await getHistory(1000);
@@ -420,11 +410,8 @@ io.on("connection", (socket) => {
   socket.data.adminRoles = [];
   socket.emit("init", containers);
 
-  socket.on("adminAuth", (payload = {}) => {
-    const auth = resolveAdminAccess({
-      ...(payload || {}),
-      cookieHeader: socket.handshake.headers.cookie || ""
-    });
+  socket.on("adminAuth", () => {
+    const auth = resolveAdminAccess(socket.handshake.headers.cookie || "");
     if (auth.ok) {
       socket.data.isAdmin = true;
       socket.data.adminUser = auth.user || "";

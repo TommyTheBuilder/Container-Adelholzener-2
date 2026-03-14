@@ -446,9 +446,17 @@ async function handleSsoRequest(req, res, config) {
   });
 }
 
-async function resolveAdminAccess(cookieHeader = "") {
+async function resolveAdminAccess(authInput = {}) {
+  const cookieHeader = typeof authInput === "string"
+    ? authInput
+    : String(authInput?.cookieHeader || "");
+  const explicitToken = typeof authInput === "object"
+    ? String(authInput?.token || "").trim()
+    : "";
+
   const session = resolveSessionToken(cookieHeader);
-  const validated = validateSharedSessionToken(session, SHARED_AUTH_SECRET);
+  const sessionToken = explicitToken || session;
+  const validated = validateSharedSessionToken(sessionToken, SHARED_AUTH_SECRET);
   if (validated.ok) {
     return { ok: true, source: "shared_session", user: validated.user, roles: validated.roles };
   }
